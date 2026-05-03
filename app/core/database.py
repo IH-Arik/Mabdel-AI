@@ -1,0 +1,93 @@
+from __future__ import annotations
+
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+
+from app.core.config import settings
+
+
+class MongoConnectionManager:
+    def __init__(self) -> None:
+        self.client: AsyncIOMotorClient | None = None
+        self.database: AsyncIOMotorDatabase | None = None
+
+    async def connect(self) -> AsyncIOMotorDatabase:
+        if self.database is None:
+            self.client = AsyncIOMotorClient(
+                settings.MONGODB_URI,
+                serverSelectionTimeoutMS=settings.MONGODB_CONNECT_TIMEOUT_MS,
+                connectTimeoutMS=settings.MONGODB_CONNECT_TIMEOUT_MS,
+            )
+            self.database = self.client[settings.DATABASE_NAME]
+            await self.ensure_indexes()
+        return self.database
+
+    async def close(self) -> None:
+        if self.client:
+            self.client.close()
+        self.client = None
+        self.database = None
+
+    async def ensure_indexes(self) -> None:
+        if self.database is None:
+            return
+        await self.database.users.create_index("email", unique=True)
+        await self.database.users.create_index("device_tokens.device_id")
+        await self.database.otp_codes.create_index([("email", 1), ("purpose", 1), ("created_at", -1)])
+        await self.database.otp_codes.create_index("expires_at", expireAfterSeconds=0)
+        await self.database.refresh_tokens.create_index("token", unique=True)
+        await self.database.refresh_tokens.create_index("user_id")
+        await self.database.refresh_tokens.create_index("expires_at", expireAfterSeconds=0)
+        await self.database.contacts.create_index([("user_id", 1), ("name", 1)])
+        await self.database.contacts.create_index([("user_id", 1), ("identities.external_id", 1)])
+        await self.database.conversations.create_index([("user_id", 1), ("updated_at", -1)])
+        await self.database.messages.create_index([("user_id", 1), ("conversation_id", 1), ("timestamp", -1)])
+        await self.database.messages.create_index([("user_id", 1), ("content", "text")])
+        await self.database.ai_command_history.create_index([("user_id", 1), ("timestamp", -1)])
+        await self.database.call_logs.create_index([("user_id", 1), ("timestamp", -1)])
+        await self.database.documents.create_index([("user_id", 1), ("type", 1)])
+        await self.database.calendar_events.create_index([("user_id", 1), ("starts_at", 1)])
+        await self.database.notifications.create_index([("user_id", 1), ("created_at", -1)])
+        await self.database.typing_states.create_index([("user_id", 1), ("conversation_id", 1)], unique=True)
+        await self.database.typing_states.create_index("expires_at", expireAfterSeconds=0)
+        await self.database.push_dispatch_jobs.create_index([("user_id", 1), ("status", 1), ("created_at", -1)])
+        await self.database.push_dispatch_jobs.create_index([("notification_id", 1), ("device_id", 1)], unique=True)
+        await self.database.social_integrations.create_index([("user_id", 1), ("platform", 1)], unique=True)
+        await self.database.social_integrations.create_index([("status", 1), ("platform", 1)])
+        await self.database.oauth_states.create_index("state", unique=True)
+        await self.database.oauth_states.create_index("expires_at", expireAfterSeconds=0)
+        await self.database.groups.create_index([("user_id", 1), ("created_at", -1)])
+        await self.database.group_members.create_index([("group_id", 1), ("member_id", 1)], unique=True)
+        await self.database.processed_webhooks.create_index([("platform", 1), ("event_id", 1)], unique=True)
+        await self.database.app_configs.create_index([("updated_at", -1)])
+        await self.database.feature_flags.create_index("key", unique=True)
+        await self.database.onboarding_slides.create_index("id", unique=True)
+        await self.database.onboarding_slides.create_index([("is_active", 1), ("sort_order", 1)])
+        await self.database.onboarding_progress.create_index("id", unique=True)
+        await self.database.onboarding_progress.create_index("user_id", unique=True, sparse=True)
+        await self.database.onboarding_progress.create_index("device_id", unique=True, sparse=True)
+        await self.database.invoices.create_index([("owner_user_id", 1), ("created_at", -1)])
+        await self.database.invoices.create_index("invoice_number", unique=True)
+        await self.database.invoices.create_index("share_token", unique=True, sparse=True)
+        await self.database.invoices.create_index([("owner_user_id", 1), ("client_name", 1)])
+        await self.database.invoices.create_index([("owner_user_id", 1), ("due_date", 1)])
+        await self.database.counters.create_index("_id", unique=True)
+
+    async def ping(self) -> bool:
+        if self.client is None:
+            return False
+        try:
+            await self.client.admin.command("ping")
+            return True
+        except Exception:
+            return False
+
+
+mongo_manager = MongoConnectionManager()
+
+
+async def get_database() -> AsyncIOMotorDatabase:
+    return await mongo_manager.connect()
+
+
+async def close_database_connection() -> None:
+    await mongo_manager.close()
