@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
@@ -8,6 +9,8 @@ from fastapi.responses import JSONResponse
 from starlette import status
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class AppException(Exception):
@@ -91,6 +94,12 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         details = str(exc) if settings.DEBUG else None
         request_id = getattr(request.state, "request_id", None)
+        logger.exception(
+            "Unhandled exception request_id=%s method=%s path=%s",
+            request_id,
+            request.method,
+            request.url.path,
+        )
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=_error_payload(message="Unexpected server error.", code="INTERNAL_SERVER_ERROR", details=details, request_id=request_id),

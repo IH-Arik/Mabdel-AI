@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo.errors import PyMongoError
 
 from app.core.config import settings
+from app.core.exceptions import AppException
 
 
 class MongoConnectionManager:
@@ -12,13 +14,24 @@ class MongoConnectionManager:
 
     async def connect(self) -> AsyncIOMotorDatabase:
         if self.database is None:
-            self.client = AsyncIOMotorClient(
-                settings.MONGODB_URI,
-                serverSelectionTimeoutMS=settings.MONGODB_CONNECT_TIMEOUT_MS,
-                connectTimeoutMS=settings.MONGODB_CONNECT_TIMEOUT_MS,
-            )
-            self.database = self.client[settings.DATABASE_NAME]
-            await self.ensure_indexes()
+            try:
+                self.client = AsyncIOMotorClient(
+                    settings.MONGODB_URI,
+                    serverSelectionTimeoutMS=settings.MONGODB_CONNECT_TIMEOUT_MS,
+                    connectTimeoutMS=settings.MONGODB_CONNECT_TIMEOUT_MS,
+                )
+                self.database = self.client[settings.DATABASE_NAME]
+                await self.ensure_indexes()
+            except PyMongoError as exc:
+                if self.client:
+                    self.client.close()
+                self.client = None
+                self.database = None
+                raise AppException(
+                    status_code=503,
+                    code="DATABASE_UNAVAILABLE",
+                    message="Database is unavailable. Check MONGODB_URI and database network access.",
+                ) from exc
         return self.database
 
     async def close(self) -> None:
