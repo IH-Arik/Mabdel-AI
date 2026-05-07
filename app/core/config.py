@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 from pydantic import Field, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def default_media_root() -> str:
+    return "/tmp/mabdel-uploads" if os.getenv("VERCEL") else "uploads"
 
 
 class Settings(BaseSettings):
@@ -19,7 +24,7 @@ class Settings(BaseSettings):
     AUTH_RATE_LIMIT_MAX_REQUESTS: int = 20
     AUTH_RATE_LIMIT_WINDOW_SECONDS: int = 60
     PUBLIC_BACKEND_URL: str = "http://127.0.0.1:8000"
-    MEDIA_ROOT: str = "uploads"
+    MEDIA_ROOT: str = Field(default_factory=default_media_root)
     MEDIA_PUBLIC_PATH: str = "/media"
     MEDIA_MAX_UPLOAD_BYTES: int = 5 * 1024 * 1024
     MEDIA_ALLOWED_IMAGE_TYPES: list[str] = Field(
@@ -124,10 +129,13 @@ class Settings(BaseSettings):
             return [item.strip().strip('"').strip("'").lower() for item in stripped.split(",") if item.strip()]
         return ["image/jpeg", "image/png", "image/webp", "image/gif"]
 
-    @field_validator("MEDIA_ROOT")
+    @field_validator("MEDIA_ROOT", mode="before")
     @classmethod
-    def normalize_media_root(cls, value: str) -> str:
-        return str(Path(value).expanduser())
+    def normalize_media_root(cls, value: str | None) -> str:
+        media_root = str(value or "").strip() or default_media_root()
+        if os.getenv("VERCEL") and media_root in {"uploads", "./uploads"}:
+            media_root = default_media_root()
+        return str(Path(media_root).expanduser())
 
     @field_validator("DEBUG", mode="before")
     @classmethod

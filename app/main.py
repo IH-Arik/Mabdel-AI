@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -42,6 +43,20 @@ OPENAPI_TAGS = [
 ]
 
 
+def mount_media(app: FastAPI) -> None:
+    media_root = Path(settings.MEDIA_ROOT)
+    try:
+        media_root.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        fallback_root = Path(tempfile.gettempdir()) / "mabdel-uploads"
+        fallback_root.mkdir(parents=True, exist_ok=True)
+        settings.MEDIA_ROOT = str(fallback_root)
+        media_root = fallback_root
+        logger.warning("MEDIA_ROOT was not writable (%s). Using %s instead.", exc, media_root)
+
+    app.mount(settings.MEDIA_PUBLIC_PATH, StaticFiles(directory=str(media_root)), name="media")
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     try:
@@ -76,8 +91,7 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
     app.include_router(compat_router)
     app.include_router(api_router, prefix=settings.API_V1_PREFIX)
-    Path(settings.MEDIA_ROOT).mkdir(parents=True, exist_ok=True)
-    app.mount(settings.MEDIA_PUBLIC_PATH, StaticFiles(directory=settings.MEDIA_ROOT), name="media")
+    mount_media(app)
 
     @app.get("/health", tags=["Health"])
     async def health_check() -> dict:

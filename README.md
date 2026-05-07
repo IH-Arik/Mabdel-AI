@@ -248,6 +248,22 @@ python -m pytest -q
 - Mount the app behind a reverse proxy or load balancer and expose only the API port.
 - Use the `/ready` endpoint for container readiness checks.
 
+### Vercel
+
+This repo includes `api/index.py` and `vercel.json` so Vercel can run the FastAPI app as a Python Serverless Function.
+
+Set these Vercel environment variables before deploying a production project:
+
+- `MONGODB_URI`
+- `DATABASE_NAME`
+- `SECRET_KEY`
+- `OAUTH_TOKEN_ENCRYPTION_KEY` when `ENVIRONMENT` is not `development`
+- `CORS_ORIGINS`, for example `["https://your-frontend.vercel.app"]`
+- `TRUSTED_HOSTS`, for example `["your-api.vercel.app",".vercel.app"]`
+- Any optional provider keys you actively use, such as `OPENAI_API_KEY`, `RESEND_API_KEY`, Twilio, FCM, or APNs credentials
+
+On Vercel, `MEDIA_ROOT` defaults to `/tmp/mabdel-uploads` because the function filesystem is read-only except for temporary storage. Files in `/tmp` are ephemeral, so use external object storage before relying on uploads in production.
+
 ## Docker
 
 ```bash
