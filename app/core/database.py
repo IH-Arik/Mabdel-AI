@@ -1,10 +1,29 @@
 from __future__ import annotations
 
+import logging
+from urllib.parse import urlsplit, urlunsplit
+
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo.errors import PyMongoError
 
 from app.core.config import settings
 from app.core.exceptions import AppException
+
+logger = logging.getLogger(__name__)
+
+
+def _redact_mongodb_uri(uri: str) -> str:
+    try:
+        parts = urlsplit(uri)
+    except ValueError:
+        return "<invalid-uri>"
+
+    hostname = parts.hostname or ""
+    if parts.port:
+        hostname = f"{hostname}:{parts.port}"
+    if not hostname:
+        hostname = "<missing-host>"
+    return urlunsplit((parts.scheme, hostname, parts.path, "", ""))
 
 
 class MongoConnectionManager:
@@ -27,6 +46,11 @@ class MongoConnectionManager:
                     self.client.close()
                 self.client = None
                 self.database = None
+                logger.exception(
+                    "MongoDB connection failed database=%s uri=%s",
+                    settings.DATABASE_NAME,
+                    _redact_mongodb_uri(settings.MONGODB_URI),
+                )
                 raise AppException(
                     status_code=503,
                     code="DATABASE_UNAVAILABLE",
