@@ -118,3 +118,70 @@ def test_telegram_webhook_accepts_native_secret_header(client, mock_db, monkeypa
 
     assert response.status_code == 200
     assert response.json()["data"]["status"] == "processed"
+
+
+def test_telegram_webhook_resolves_user_from_secret_without_query_user_id(client, mock_db, monkeypatch):
+    monkeypatch.setattr(settings, "WEBHOOK_SHARED_SECRET", "fallback-secret")
+    user_id = asyncio.run(_create_user(mock_db, email="webhook4@example.com"))
+    asyncio.run(
+        mock_db.social_integrations.insert_one(
+            {
+                "user_id": user_id,
+                "platform": "telegram",
+                "status": "connected",
+                "telegram_secret_token": "telegram-secret",
+                "webhook_status": "configured",
+            }
+        )
+    )
+
+    response = client.post(
+        "/api/v1/smartflow/integrations/telegram/webhook",
+        json={
+            "message": {
+                "message_id": 89,
+                "text": "Resolved without query params",
+                "from": {"id": 654, "first_name": "Alex"},
+            }
+        },
+        headers={"X-Telegram-Bot-Api-Secret-Token": "telegram-secret"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()["data"]
+    assert payload["status"] == "processed"
+    assert payload["message"]["content"] == "Resolved without query params"
+
+
+def test_meta_webhook_resolves_user_from_external_account_id(client, mock_db, monkeypatch):
+    monkeypatch.setattr(settings, "WEBHOOK_SHARED_SECRET", "super-secret")
+    user_id = asyncio.run(_create_user(mock_db, email="webhook5@example.com"))
+    asyncio.run(
+        mock_db.social_integrations.insert_one(
+            {
+                "user_id": user_id,
+                "platform": "instagram",
+                "status": "connected",
+                "external_account_id": "ig-page-1",
+                "webhook_status": "configured",
+            }
+        )
+    )
+
+    response = client.post(
+        "/api/v1/smartflow/integrations/instagram/webhook",
+        json={
+            "entry": [
+                {
+                    "id": "ig-page-1",
+                    "messaging": [
+                        {"id": "mid-1", "sender": {"id": "person-1"}, "message": {"text": "Instagram DM"}}
+                    ],
+                }
+            ]
+        },
+        headers={"X-Webhook-Secret": "super-secret"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["status"] == "processed"

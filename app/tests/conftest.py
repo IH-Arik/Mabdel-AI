@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from mongomock_motor import AsyncMongoMockClient
 
 from app.api.v1.auth_routes import get_email_service
+from app.core.config import settings
 from app.core.database import get_database, mongo_manager
 from app.core.http import AuthRateLimitMiddleware
 from app.main import app
@@ -39,6 +40,8 @@ async def _seed_defaults(db) -> None:
 
 @pytest.fixture(scope="function")
 def mock_db():
+    original_public_backend_url = settings.PUBLIC_BACKEND_URL
+    settings.PUBLIC_BACKEND_URL = "http://127.0.0.1:8000"
     client = AsyncMongoMockClient()
     db = client["test_mabdel_auth_db"]
 
@@ -50,6 +53,7 @@ def mock_db():
 
     mongo_manager.client = None
     mongo_manager.database = None
+    settings.PUBLIC_BACKEND_URL = original_public_backend_url
 
 
 @pytest.fixture(scope="function")

@@ -7,6 +7,7 @@ from io import BytesIO
 
 from app.core.config import settings
 from app.core.exceptions import AppException
+from app.workflows.graph import run_assistant_workflow
 
 
 class MabdelAIService:
@@ -30,12 +31,31 @@ class MabdelAIService:
     def generate_response(self, user_text: str, history: Iterable[dict] | None = None) -> dict:
         normalized = user_text.lower().strip()
         history_count = len(list(history or []))
+        workflow_state = run_assistant_workflow(user_text)
+        if workflow_state.intent != "unknown":
+            command_type = workflow_state.intent
+            navigation = self._navigation_for_intent(workflow_state.intent, user_text)
+            return {
+                "state": "responded",
+                "content": self._workflow_response_text(workflow_state.intent),
+                "command_type": command_type,
+                "workflow": {
+                    "engine": workflow_state.output.get("workflow_engine"),
+                    "intent": workflow_state.intent,
+                    "summary": workflow_state.summary,
+                    "output": workflow_state.output,
+                },
+                "navigation": navigation,
+            }
+
         llm_response = self._generate_with_openai(user_text, history)
         if llm_response:
             return {
                 "state": "responded",
                 "content": llm_response,
                 "command_type": self._infer_command_type(normalized),
+                "workflow": None,
+                "navigation": self._navigation_for_intent(self._infer_command_type(normalized), user_text),
             }
 
         if "tax" in normalized:
@@ -61,6 +81,8 @@ class MabdelAIService:
             "state": "responded",
             "content": f"{summary} Context turns reviewed: {history_count}. Request: {user_text.strip()}",
             "command_type": command_type,
+            "workflow": None,
+            "navigation": self._navigation_for_intent(command_type, user_text),
         }
 
     def list_voice_presets(self) -> list[dict]:
@@ -233,8 +255,109 @@ class MabdelAIService:
     def _infer_command_type(normalized: str) -> str:
         if "tax" in normalized or "sales" in normalized or "revenue" in normalized or "margin" in normalized:
             return "report"
+        if "bulk" in normalized and ("email" in normalized or "mail" in normalized or "message" in normalized or "sms" in normalized):
+            return "bulk_message"
         if "email" in normalized or "draft" in normalized:
             return "email"
         if "invoice" in normalized:
             return "invoice"
+        if "lease" in normalized or "rental agreement" in normalized or "rent agreement" in normalized:
+            return "lease"
+        if "agreement" in normalized or "contract" in normalized or "nda" in normalized:
+            return "agreement"
         return "message"
+
+    @staticmethod
+    def _workflow_response_text(intent: str) -> str:
+        messages = {
+            "invoice": "Sure, opening the invoice creator now.",
+            "email": "Sure, opening the email draft workflow now.",
+            "bulk_message": "Sure, opening the bulk email workflow now.",
+            "calendar": "Sure, opening the scheduling workflow now.",
+            "lease": "Sure, opening the lease creator now.",
+            "agreement": "Sure, opening the agreement creator now.",
+            "group": "Sure, opening the group workflow now.",
+            "call": "Sure, opening the call workflow now.",
+        }
+        return messages.get(intent, "Sure, I found the right workflow.")
+
+    @staticmethod
+    def _navigation_for_intent(intent: str, user_text: str) -> dict:
+        routes = {
+            "invoice": {
+                "action": "open_screen",
+                "route_name": "invoice_create",
+                "screen": "CreateInvoice",
+                "path": "/invoices/create",
+                "label": "Create Invoice",
+            },
+            "email": {
+                "action": "open_screen",
+                "route_name": "email_draft",
+                "screen": "EmailDraft",
+                "path": "/email/draft",
+                "label": "Draft Email",
+            },
+            "bulk_message": {
+                "action": "open_screen",
+                "route_name": "bulk_message_create",
+                "screen": "CreateBulkMessage",
+                "path": "/bulk-messages/create",
+                "label": "Create Bulk Email",
+            },
+            "calendar": {
+                "action": "open_screen",
+                "route_name": "calendar_create",
+                "screen": "CreateCalendarEvent",
+                "path": "/calendar/events/create",
+                "label": "Schedule Meeting",
+            },
+            "lease": {
+                "action": "open_screen",
+                "route_name": "lease_create",
+                "screen": "CreateLease",
+                "path": "/leases/create",
+                "label": "Create Lease",
+            },
+            "agreement": {
+                "action": "open_screen",
+                "route_name": "agreement_create",
+                "screen": "CreateAgreement",
+                "path": "/agreements/create",
+                "label": "Create Agreement",
+            },
+            "group": {
+                "action": "open_screen",
+                "route_name": "group_create",
+                "screen": "CreateGroup",
+                "path": "/groups/create",
+                "label": "Create Group",
+            },
+            "call": {
+                "action": "open_screen",
+                "route_name": "call_history",
+                "screen": "CallHistory",
+                "path": "/calls",
+                "label": "Open Calls",
+            },
+        }
+        route = routes.get(intent)
+        if not route:
+            return {
+                "should_redirect": False,
+                "action": "none",
+                "route_name": None,
+                "screen": None,
+                "path": None,
+                "label": None,
+                "params": {},
+            }
+        return {
+            "should_redirect": True,
+            **route,
+            "params": {
+                "source": "mabdel_ai",
+                "prefill_prompt": user_text.strip(),
+                "intent": intent,
+            },
+        }

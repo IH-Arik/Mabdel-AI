@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+import httpx
 from starlette import status
 
 from app.core.config import settings
@@ -219,13 +220,87 @@ class AuthService:
             user=self._user_to_response(user),
         )
 
-    async def google_login(self, _: GoogleLoginRequest) -> MessageResponse:
-        # TODO: Validate Google ID token and create/login user by provider ID.
-        raise AppException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            code="GOOGLE_LOGIN_NOT_IMPLEMENTED",
-            message="Google login is not implemented yet.",
+    async def google_login(self, payload: GoogleLoginRequest) -> TokenResponse:
+        if not payload.id_token:
+            raise AppException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="GOOGLE_ID_TOKEN_REQUIRED",
+                message="Google ID token is required.",
+            )
+        if not settings.GOOGLE_CLIENT_ID:
+            raise AppException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                code="GOOGLE_LOGIN_NOT_CONFIGURED",
+                message="Google login is not configured yet.",
+            )
+
+        profile = await self._verify_google_id_token(payload.id_token)
+        email = str(profile.get("email") or "").lower().strip()
+        google_user_id = str(profile.get("sub") or "")
+        if not email or not google_user_id:
+            raise AppException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                code="GOOGLE_TOKEN_INVALID",
+                message="Google token is missing required profile claims.",
+            )
+
+        existing = await self.auth_repository.get_user_by_email(email)
+        if existing:
+            user = await self.auth_repository.link_oauth_provider(
+                email=email,
+                provider="google",
+                provider_user_id=google_user_id,
+                avatar_url=profile.get("picture"),
+            ) or existing
+        else:
+            user = await self.auth_repository.create_oauth_user(
+                full_name=profile.get("name") or email.split("@", 1)[0],
+                email=email,
+                provider="google",
+                provider_user_id=google_user_id,
+                avatar_url=profile.get("picture"),
+            )
+
+        access_token = create_access_token(user_id=str(user["_id"]), email=user["email"])
+        refresh_token = create_refresh_token(user_id=str(user["_id"]), email=user["email"])
+        await self.token_repository.create_refresh_token(
+            user_id=str(user["_id"]),
+            token_hash=hash_token_for_storage(refresh_token),
+            expires_at=utc_now() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
         )
+        return TokenResponse(access_token=access_token, refresh_token=refresh_token, user=self._user_to_response(user))
+
+    async def _verify_google_id_token(self, id_token: str) -> dict:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get("https://oauth2.googleapis.com/tokeninfo", params={"id_token": id_token})
+        except httpx.HTTPError as exc:
+            raise AppException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                code="GOOGLE_TOKEN_VERIFICATION_UNAVAILABLE",
+                message="Google token verification is temporarily unavailable.",
+            ) from exc
+
+        if response.status_code >= 400:
+            raise AppException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                code="GOOGLE_TOKEN_INVALID",
+                message="Google token is invalid or expired.",
+            )
+        data = response.json()
+        if data.get("aud") != settings.GOOGLE_CLIENT_ID:
+            raise AppException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                code="GOOGLE_TOKEN_AUDIENCE_INVALID",
+                message="Google token was issued for a different client.",
+            )
+        if str(data.get("email_verified", "")).lower() not in {"true", "1"}:
+            raise AppException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                code="GOOGLE_EMAIL_NOT_VERIFIED",
+                message="Google account email is not verified.",
+            )
+        return data
 
     async def get_current_user(self, access_token: str) -> UserResponse:
         claims = decode_token(access_token)
@@ -261,6 +336,8 @@ class AuthService:
             is_verified=bool(safe_user.get("is_verified", False)),
             auth_provider=safe_user.get("auth_provider", "email"),
             avatar_url=safe_user.get("avatar_url"),
+            date_of_birth=safe_user.get("date_of_birth"),
+            country=safe_user.get("country"),
             language_preference=safe_user.get("language_preference", "EN"),
             created_at=safe_user["created_at"],
         )

@@ -36,6 +36,20 @@ def _error_payload(message: str, code: str, details: Any = None, request_id: str
     }
 
 
+def _json_safe_validation_errors(errors: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+    for error in errors:
+        safe_error = dict(error)
+        context = safe_error.get("ctx")
+        if isinstance(context, dict):
+            safe_error["ctx"] = {
+                key: str(value) if isinstance(value, BaseException) else value
+                for key, value in context.items()
+            }
+        normalized.append(safe_error)
+    return normalized
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     def _request_headers(request_id: str | None) -> dict[str, str]:
         return {"X-Request-ID": request_id} if request_id else {}
@@ -64,7 +78,12 @@ def register_exception_handlers(app: FastAPI) -> None:
         request_id = getattr(request.state, "request_id", None)
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content=_error_payload(message="Validation error.", code="VALIDATION_ERROR", details=exc.errors(), request_id=request_id),
+            content=_error_payload(
+                message="Validation error.",
+                code="VALIDATION_ERROR",
+                details=_json_safe_validation_errors(exc.errors()),
+                request_id=request_id,
+            ),
             headers=_request_headers(request_id),
         )
 

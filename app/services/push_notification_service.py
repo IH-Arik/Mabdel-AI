@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import time
 from typing import Any
 
 import httpx
+from jose import jwt
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ReturnDocument
 
@@ -33,6 +35,8 @@ class PushNotificationService:
 
         preference_key = self.preference_map.get(notification["type"])
         preferences = user.get("notification_preferences", {})
+        if preferences.get("general_notification") is False:
+            return []
         if preference_key and preferences.get(preference_key) is False:
             return []
 
@@ -49,6 +53,8 @@ class PushNotificationService:
                 "title": notification["title"],
                 "body": notification["body"],
                 "badge": unread_count,
+                "sound": "default" if preferences.get("sound", True) else None,
+                "vibrate": bool(preferences.get("vibrate", True)),
                 "status": "queued",
                 "attempts": 0,
                 "created_at": utc_now(),
@@ -88,7 +94,7 @@ class PushNotificationService:
         if platform in {"android", "web"}:
             status, provider_response = await self._send_fcm(job)
         elif platform == "ios":
-            status, provider_response = self._send_apns_placeholder()
+            status, provider_response = await self._send_apns(job)
         else:
             status, provider_response = "failed", {"reason": "unsupported_platform"}
 
@@ -105,7 +111,8 @@ class PushNotificationService:
 
     async def _send_fcm(self, job: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         if not settings.FCM_SERVER_KEY:
-            return "skipped", {"reason": "fcm_not_configured"}
+            status = "skipped" if settings.ENVIRONMENT.lower() == "development" else "failed"
+            return status, {"reason": "fcm_not_configured"}
         payload = {
             "to": job["token"],
             "notification": {
@@ -132,9 +139,60 @@ class PushNotificationService:
         except Exception as exc:
             return "failed", {"reason": str(exc)[:240]}
 
+    async def _send_apns(self, job: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+        missing = [
+            key
+            for key, value in {
+                "APNS_KEY_ID": settings.APNS_KEY_ID,
+                "APNS_TEAM_ID": settings.APNS_TEAM_ID,
+                "APNS_BUNDLE_ID": settings.APNS_BUNDLE_ID,
+                "APNS_PRIVATE_KEY": settings.APNS_PRIVATE_KEY,
+            }.items()
+            if not value
+        ]
+        if missing:
+            status = "skipped" if settings.ENVIRONMENT.lower() == "development" else "failed"
+            return status, {"reason": "apns_not_configured", "missing": missing}
+
+        token = self._build_apns_jwt()
+        aps: dict[str, Any] = {"badge": job.get("badge", 0)}
+        if job.get("sound"):
+            aps["sound"] = job["sound"]
+        if job.get("title") or job.get("body"):
+            aps["alert"] = {"title": job.get("title", ""), "body": job.get("body", "")}
+
+        payload = {
+            "aps": aps,
+            "notification_id": job["notification_id"],
+        }
+        host = "api.sandbox.push.apple.com" if settings.APNS_USE_SANDBOX else "api.push.apple.com"
+        url = f"https://{host}/3/device/{job['token']}"
+        headers = {
+            "authorization": f"bearer {token}",
+            "apns-topic": settings.APNS_BUNDLE_ID or "",
+            "apns-push-type": "alert",
+            "apns-priority": "10",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=20.0, http2=True) as client:
+                response = await client.post(url, json=payload, headers=headers)
+            if response.status_code in {200, 201}:
+                return "sent", {"status_code": response.status_code}
+            detail: dict[str, Any] = {"status_code": response.status_code, "body": response.text[:300]}
+            try:
+                detail["json"] = response.json()
+            except Exception:
+                pass
+            return "failed", detail
+        except Exception as exc:
+            return "failed", {"reason": str(exc)[:240]}
+
     @staticmethod
-    def _send_apns_placeholder() -> tuple[str, dict[str, Any]]:
-        return "skipped", {"reason": "apns_not_configured"}
+    def _build_apns_jwt() -> str:
+        private_key = (settings.APNS_PRIVATE_KEY or "").replace("\\n", "\n")
+        headers = {"alg": "ES256", "kid": settings.APNS_KEY_ID}
+        claims = {"iss": settings.APNS_TEAM_ID, "iat": int(time.time())}
+        return jwt.encode(claims, private_key, algorithm="ES256", headers=headers)
 
     @staticmethod
     def _public_job(job: dict[str, Any]) -> dict[str, Any]:

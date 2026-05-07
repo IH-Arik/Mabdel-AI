@@ -4,6 +4,7 @@ from datetime import datetime
 
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo import ReturnDocument
 
 from app.utils.helpers import utc_now
 
@@ -29,8 +30,13 @@ class AuthRepository:
             "is_verified": False,
             "auth_provider": "email",
             "avatar_url": None,
+            "date_of_birth": None,
+            "country": None,
             "language_preference": "EN",
             "notification_preferences": {
+                "general_notification": True,
+                "sound": True,
+                "vibrate": True,
                 "new_messages": True,
                 "missed_calls": True,
                 "scheduled_calls": True,
@@ -44,6 +50,67 @@ class AuthRepository:
         result = await self.collection.insert_one(user)
         user["_id"] = result.inserted_id
         return user
+
+    async def create_oauth_user(
+        self,
+        *,
+        full_name: str,
+        email: str,
+        provider: str,
+        provider_user_id: str,
+        avatar_url: str | None = None,
+    ) -> dict:
+        now = utc_now()
+        user = {
+            "full_name": full_name.strip() or email.split("@", 1)[0],
+            "email": email.lower().strip(),
+            "password_hash": "",
+            "is_verified": True,
+            "auth_provider": provider,
+            "provider_user_id": provider_user_id,
+            "avatar_url": avatar_url,
+            "date_of_birth": None,
+            "country": None,
+            "language_preference": "EN",
+            "notification_preferences": {
+                "general_notification": True,
+                "sound": True,
+                "vibrate": True,
+                "new_messages": True,
+                "missed_calls": True,
+                "scheduled_calls": True,
+                "ai_tasks": True,
+                "calendar_reminders": True,
+            },
+            "device_tokens": [],
+            "created_at": now,
+            "updated_at": now,
+        }
+        result = await self.collection.insert_one(user)
+        user["_id"] = result.inserted_id
+        return user
+
+    async def link_oauth_provider(
+        self,
+        *,
+        email: str,
+        provider: str,
+        provider_user_id: str,
+        avatar_url: str | None = None,
+    ) -> dict | None:
+        updates = {
+            "auth_provider": provider,
+            "provider_user_id": provider_user_id,
+            "is_verified": True,
+            "updated_at": utc_now(),
+        }
+        if avatar_url:
+            updates["avatar_url"] = avatar_url
+        return await self.collection.find_one_and_update(
+            {"email": email.lower().strip()},
+            {"$set": updates},
+            return_document=ReturnDocument.AFTER,
+        )
 
     async def mark_user_verified(self, email: str) -> None:
         await self.collection.update_one(

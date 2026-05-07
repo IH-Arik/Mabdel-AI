@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.compat_routes import router as compat_router
@@ -27,6 +29,7 @@ OPENAPI_TAGS = [
     {"name": "Authentication", "description": "Registration, OTP verification, login, and token lifecycle endpoints."},
     {"name": "App Config", "description": "Bootstrap configuration returned during client startup."},
     {"name": "Onboarding", "description": "Onboarding slide content and progress tracking."},
+    {"name": "Content", "description": "Public app content pages such as About Us, terms, privacy, and help."},
     {"name": "Permissions", "description": "Permission preference persistence for clients and devices."},
     {"name": "AI", "description": "AI helper endpoints for commands and content generation."},
     {"name": "Invoices", "description": "Invoice CRUD, sharing, reminders, and PDF delivery."},
@@ -73,6 +76,8 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
     app.include_router(compat_router)
     app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+    Path(settings.MEDIA_ROOT).mkdir(parents=True, exist_ok=True)
+    app.mount(settings.MEDIA_PUBLIC_PATH, StaticFiles(directory=settings.MEDIA_ROOT), name="media")
 
     @app.get("/health", tags=["Health"])
     async def health_check() -> dict:

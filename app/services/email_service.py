@@ -9,6 +9,7 @@ import httpx
 import resend
 
 from app.core.config import settings
+from app.core.exceptions import AppException
 
 logger = logging.getLogger(__name__)
 
@@ -48,10 +49,14 @@ class EmailService:
             return
 
         if not settings.MAILTRAP_API_TOKEN:
-            logger.warning(
-                "SMTP, RESEND_API_KEY, and MAILTRAP_API_TOKEN are not set. OTP email skipped for %s.",
-                email,
-            )
+            message = "SMTP, RESEND_API_KEY, and MAILTRAP_API_TOKEN are not set. Email delivery is unavailable."
+            if settings.ENVIRONMENT.lower() != "development":
+                raise AppException(
+                    status_code=503,
+                    code="EMAIL_DELIVERY_NOT_CONFIGURED",
+                    message=message,
+                )
+            logger.warning("%s Email skipped for %s.", message, email)
             return
 
         payload = {

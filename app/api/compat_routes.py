@@ -26,7 +26,7 @@ async def get_inbox(
     current_user: dict = Depends(get_current_user),
     service: SmartFlowService = Depends(get_smartflow_service),
 ) -> dict:
-    conversations = await service.list_conversations(str(current_user["_id"]), page, page_size, search, platform, archived)
+    conversations = await service.list_conversations(str(current_user["_id"]), page, page_size, search, platform, None, archived)
     unread = await service.get_unread_message_summary(str(current_user["_id"]), platform)
     return success_response(
         data={

@@ -39,11 +39,11 @@ def _auth_headers(client, mock_db, email: str = "messages@example.com") -> dict[
     return {"Authorization": f"Bearer {access_token}"}
 
 
-def _create_conversation(client, headers: dict[str, str], *, title: str) -> str:
+def _create_conversation(client, headers: dict[str, str], *, title: str, platform: str = "whatsapp") -> str:
     response = client.post(
         "/api/v1/smartflow/conversations",
         headers=headers,
-        json={"title": title, "type": "direct", "platform": "whatsapp", "member_ids": []},
+        json={"title": title, "type": "direct", "platform": platform, "member_ids": []},
     )
     assert response.status_code == 201
     return response.json()["data"]["id"]
@@ -268,6 +268,101 @@ def test_conversation_list_is_enriched_for_inbox_cards(client, mock_db):
     assert group_item["last_message_preview"].startswith("Alex Johnson:")
 
 
+def test_ai_voice_invoice_command_returns_navigation_redirect(client, mock_db):
+    headers = _auth_headers(client, mock_db, email="voice-invoice@example.com")
+
+    response = client.post(
+        "/api/v1/smartflow/ai/voice-chat",
+        headers=headers,
+        json={"transcript": "Create invoice for Sarah", "response_mode": "text"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["transcript"] == "Create invoice for Sarah"
+    assert data["ai_response"] == "Sure, opening the invoice creator now."
+    assert data["workflow"]["engine"] == "langgraph"
+    assert data["workflow"]["intent"] == "invoice"
+    assert data["navigation"]["should_redirect"] is True
+    assert data["navigation"]["route_name"] == "invoice_create"
+    assert data["navigation"]["screen"] == "CreateInvoice"
+    assert data["navigation"]["path"] == "/invoices/create"
+    assert data["navigation"]["params"]["prefill_prompt"] == "Create invoice for Sarah"
+
+
+def test_ai_chat_returns_navigation_for_business_workflow_screens(client, mock_db):
+    headers = _auth_headers(client, mock_db, email="ai-navigation@example.com")
+    cases = [
+        ("Send bulk email to all tenants", "bulk_message", "CreateBulkMessage", "/bulk-messages/create"),
+        ("Schedule meeting with Sarah tomorrow", "calendar", "CreateCalendarEvent", "/calendar/events/create"),
+        ("Create lease for apartment NY", "lease", "CreateLease", "/leases/create"),
+        ("Create service agreement for Apex", "agreement", "CreateAgreement", "/agreements/create"),
+    ]
+
+    for content, intent, screen, path in cases:
+        response = client.post(
+            "/api/v1/smartflow/ai/chat",
+            headers=headers,
+            json={"content": content, "response_mode": "text"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert data["workflow"]["engine"] == "langgraph"
+        assert data["workflow"]["intent"] == intent
+        assert data["navigation"]["should_redirect"] is True
+        assert data["navigation"]["screen"] == screen
+        assert data["navigation"]["path"] == path
+        assert data["navigation"]["params"]["prefill_prompt"] == content
+
+
+def test_ai_workflow_prefill_supports_voice_form_creation_screens(client, mock_db):
+    headers = _auth_headers(client, mock_db, email="ai-prefill@example.com")
+    cases = [
+        (
+            {"workflow_intent": "invoice", "transcript": "Create invoice for Sarah worth $500"},
+            "/api/v1/invoices",
+            "client_name",
+            "Sarah",
+        ),
+        (
+            {"workflow_intent": "bulk_message", "transcript": "Send bulk email to alex@example.com about quarterly updates"},
+            "/api/v1/smartflow/bulk-messages",
+            "recipient_emails",
+            ["alex@example.com"],
+        ),
+        (
+            {"workflow_intent": "calendar", "transcript": "Schedule meeting with Sarah tomorrow online"},
+            "/api/v1/smartflow/calendar/events",
+            "meeting_mode",
+            "online",
+        ),
+        (
+            {"workflow_intent": "lease", "transcript": "Create lease for tenant John Doe at 221B Baker Street for $1200 per month"},
+            "/api/v1/smartflow/leases/generate",
+            "tenant_name",
+            "John Doe",
+        ),
+        (
+            {"workflow_intent": "agreement", "transcript": "Create service agreement for Apex Client"},
+            "/api/v1/smartflow/agreements/generate",
+            "client_name",
+            "Apex Client",
+        ),
+    ]
+
+    for request_body, endpoint, field, expected in cases:
+        response = client.post("/api/v1/smartflow/ai/workflow-prefill", headers=headers, json=request_body)
+
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert data["workflow"]["engine"] == "langgraph"
+        assert data["navigation"]["should_redirect"] is True
+        assert data["create_endpoint"] == endpoint
+        assert data["prefill"][field] == expected
+        assert data["next_action"] in {"create", "review_form"}
+
+
 def test_conversation_unread_filter_search_and_mark_read(client, mock_db):
     headers = _auth_headers(client, mock_db, email="inbox-filters@example.com")
     maria_contact_id = _create_contact(client, headers, name="Maria Garcia", email="maria@example.com")
@@ -320,6 +415,23 @@ def test_conversation_unread_filter_search_and_mark_read(client, mock_db):
     mark_read_response = client.post(f"/api/v1/smartflow/conversations/{unread_conversation_id}/mark-read", headers=headers)
     assert mark_read_response.status_code == 200
     assert mark_read_response.json()["data"]["unread_count"] == 0
+
+
+def test_conversation_multi_platform_filter_for_unified_inbox(client, mock_db):
+    headers = _auth_headers(client, mock_db, email="inbox-platforms@example.com")
+    whatsapp_id = _create_conversation(client, headers, title="WhatsApp Lead", platform="whatsapp")
+    instagram_id = _create_conversation(client, headers, title="Instagram Lead", platform="instagram")
+    _create_conversation(client, headers, title="SMS Lead", platform="sms")
+
+    response = client.get(
+        "/api/v1/smartflow/conversations?platforms=whatsapp,instagram",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    items = response.json()["data"]["items"]
+    assert {item["id"] for item in items} == {whatsapp_id, instagram_id}
+    assert {item["platform"] for item in items} == {"whatsapp", "instagram"}
 
 
 def test_conversation_detail_and_rich_typing_state_for_chat_screen(client, mock_db):
@@ -462,3 +574,169 @@ def test_inbox_publish_and_stream_contract_for_unified_conversations(client, moc
     assert published_events[-1][0]
     assert published_events[-1][1] == "inbox.updated"
     assert published_events[-1][2]["conversation"]["platform_label"] == "Facebook"
+
+
+def test_group_management_endpoints_support_settings_screen(client, mock_db):
+    headers = _auth_headers(client, mock_db, email="group-settings@example.com")
+    sarah_id = _create_contact(client, headers, name="Sarah Jenkins", email="sarah@example.com", presence="online")
+    david_id = _create_contact(client, headers, name="David Thompson", email="david@example.com")
+    emily_id = _create_contact(client, headers, name="Emily Carter", email="emily@example.com")
+
+    create_response = client.post(
+        "/api/v1/smartflow/groups",
+        headers=headers,
+        json={
+            "name": "Marketing Team",
+            "avatar_url": "https://cdn.example.com/groups/marketing.png",
+            "description": "Brand and campaign collaborators",
+            "member_ids": [sarah_id, david_id],
+            "admin_ids": [sarah_id],
+        },
+    )
+    assert create_response.status_code == 201
+    group = create_response.json()["data"]
+    group_id = group["id"]
+    assert group["member_count"] == 2
+    assert group["avatar_url"] == "https://cdn.example.com/groups/marketing.png"
+    assert group["members"][0]["role"] in {"admin", "member"}
+
+    detail_response = client.get(f"/api/v1/smartflow/groups/{group_id}", headers=headers)
+    assert detail_response.status_code == 200
+    detail = detail_response.json()["data"]
+    assert detail["member_count"] == 2
+    assert detail["pending_invite_count"] == 0
+    assert any(member["name"] == "Sarah Jenkins" and member["role"] == "admin" for member in detail["members"])
+
+    add_member_response = client.post(
+        f"/api/v1/smartflow/groups/{group_id}/members",
+        headers=headers,
+        json={"member_ids": [emily_id]},
+    )
+    assert add_member_response.status_code == 200
+    added_group = add_member_response.json()["data"]
+    assert added_group["member_count"] == 3
+    assert any(member["name"] == "Emily Carter" for member in added_group["members"])
+
+    role_response = client.patch(
+        f"/api/v1/smartflow/groups/{group_id}/members/{emily_id}",
+        headers=headers,
+        json={"role": "admin"},
+    )
+    assert role_response.status_code == 200
+    role_payload = role_response.json()["data"]
+    assert any(member["id"] == emily_id and member["role"] == "admin" for member in role_payload["members"])
+
+    invite_response = client.post(
+        f"/api/v1/smartflow/groups/{group_id}/invites",
+        headers=headers,
+        json={"phone": "+13478902211", "name": "Pending Invite"},
+    )
+    assert invite_response.status_code == 200
+    invite_payload = invite_response.json()["data"]
+    assert invite_payload["pending_invite_count"] == 1
+    invite_id = invite_payload["pending_invites"][0]["id"]
+
+    cancel_invite_response = client.delete(
+        f"/api/v1/smartflow/groups/{group_id}/invites/{invite_id}",
+        headers=headers,
+    )
+    assert cancel_invite_response.status_code == 200
+    assert cancel_invite_response.json()["data"]["pending_invite_count"] == 0
+
+    remove_member_response = client.delete(
+        f"/api/v1/smartflow/groups/{group_id}/members/{david_id}",
+        headers=headers,
+    )
+    assert remove_member_response.status_code == 200
+    removed_payload = remove_member_response.json()["data"]
+    assert removed_payload["member_count"] == 2
+    assert all(member["id"] != david_id for member in removed_payload["members"])
+
+
+def test_group_chat_messages_include_attachments_mentions_and_sender_metadata(client, mock_db):
+    headers = _auth_headers(client, mock_db, email="group-chat@example.com")
+    sarah_id = _create_contact(client, headers, name="Sarah Jenkins", email="sarah@example.com", presence="online")
+    alex_id = _create_contact(client, headers, name="Alex Rivera", email="alex@example.com", presence="busy")
+
+    group_response = client.post(
+        "/api/v1/smartflow/groups",
+        headers=headers,
+        json={"name": "Marketing Team", "member_ids": [sarah_id, alex_id], "admin_ids": [sarah_id]},
+    )
+    assert group_response.status_code == 201
+    conversation_id = group_response.json()["data"]["conversation_id"]
+
+    message_response = client.post(
+        "/api/v1/smartflow/messages",
+        headers=headers,
+        json={
+            "conversation_id": conversation_id,
+            "contact_id": sarah_id,
+            "platform": "ai",
+            "direction": "inbound",
+            "content": "Here is the moodboard and brief.",
+            "attachments": [
+                {
+                    "type": "image",
+                    "url": "https://cdn.example.com/uploads/moodboard.png",
+                    "thumbnail_url": "https://cdn.example.com/uploads/moodboard-thumb.png",
+                },
+                {
+                    "type": "document",
+                    "url": "https://cdn.example.com/uploads/project-brief-q1.pdf",
+                    "file_name": "Project_Brief_Q1.pdf",
+                    "mime_type": "application/pdf",
+                    "file_size_bytes": 2400000,
+                },
+            ],
+            "mentions": [alex_id],
+        },
+    )
+    assert message_response.status_code == 201
+    payload = message_response.json()["data"]
+    assert payload["attachment_count"] == 2
+    assert payload["has_attachments"] is True
+    assert payload["sender_name"] == "Sarah Jenkins"
+    assert payload["sender_presence"] == "online"
+    assert payload["mentions"][0]["name"] == "Alex Rivera"
+    assert payload["attachments"][1]["file_name"] == "Project_Brief_Q1.pdf"
+
+    list_response = client.get(
+        f"/api/v1/smartflow/conversations/{conversation_id}/messages",
+        headers=headers,
+    )
+    assert list_response.status_code == 200
+    listed_message = list_response.json()["data"]["items"][0]
+    assert listed_message["attachments"][0]["type"] == "image"
+    assert listed_message["mentions"][0]["contact_id"] == alex_id
+
+
+def test_leave_and_delete_group_endpoints_behave_for_group_lifecycle(client, mock_db):
+    headers = _auth_headers(client, mock_db, email="group-lifecycle@example.com")
+    member_id = _create_contact(client, headers, name="Jordan Smith", email="jordan@example.com")
+
+    leave_group_response = client.post(
+        "/api/v1/smartflow/groups",
+        headers=headers,
+        json={"name": "Archive Me", "member_ids": [member_id]},
+    )
+    assert leave_group_response.status_code == 201
+    leave_group_id = leave_group_response.json()["data"]["id"]
+
+    leave_response = client.post(f"/api/v1/smartflow/groups/{leave_group_id}/leave", headers=headers)
+    assert leave_response.status_code == 200
+    list_after_leave = client.get("/api/v1/smartflow/groups", headers=headers)
+    assert list_after_leave.status_code == 200
+    assert all(item["id"] != leave_group_id for item in list_after_leave.json()["data"]["items"])
+
+    delete_group_response = client.post(
+        "/api/v1/smartflow/groups",
+        headers=headers,
+        json={"name": "Delete Me", "member_ids": [member_id]},
+    )
+    assert delete_group_response.status_code == 201
+    delete_group_id = delete_group_response.json()["data"]["id"]
+
+    delete_response = client.delete(f"/api/v1/smartflow/groups/{delete_group_id}", headers=headers)
+    assert delete_response.status_code == 200
+    assert delete_response.json()["data"]["deleted"] is True

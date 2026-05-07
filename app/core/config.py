@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from pydantic import Field, ValidationInfo, field_validator
@@ -18,6 +19,12 @@ class Settings(BaseSettings):
     AUTH_RATE_LIMIT_MAX_REQUESTS: int = 20
     AUTH_RATE_LIMIT_WINDOW_SECONDS: int = 60
     PUBLIC_BACKEND_URL: str = "http://127.0.0.1:8000"
+    MEDIA_ROOT: str = "uploads"
+    MEDIA_PUBLIC_PATH: str = "/media"
+    MEDIA_MAX_UPLOAD_BYTES: int = 5 * 1024 * 1024
+    MEDIA_ALLOWED_IMAGE_TYPES: list[str] = Field(
+        default_factory=lambda: ["image/jpeg", "image/png", "image/webp", "image/gif"]
+    )
 
     MONGODB_URI: str = "mongodb://localhost:27017"
     DATABASE_NAME: str = "mabdel_db"
@@ -46,10 +53,23 @@ class Settings(BaseSettings):
     TWITTER_CLIENT_ID: str | None = None
     TWITTER_CLIENT_SECRET: str | None = None
     TWITTER_REDIRECT_URI: str | None = None
+    SNAPCHAT_CLIENT_ID: str | None = None
+    SNAPCHAT_CLIENT_SECRET: str | None = None
+    SNAPCHAT_REDIRECT_URI: str | None = None
     WEBHOOK_SHARED_SECRET: str | None = None
     META_WEBHOOK_VERIFY_TOKEN: str | None = None
     FCM_SERVER_KEY: str | None = None
+    APNS_KEY_ID: str | None = None
+    APNS_TEAM_ID: str | None = None
+    APNS_BUNDLE_ID: str | None = None
+    APNS_PRIVATE_KEY: str | None = None
+    APNS_USE_SANDBOX: bool = False
     PUSH_DELIVERY_SYNC: bool = True
+    TWILIO_ACCOUNT_SID: str | None = None
+    TWILIO_AUTH_TOKEN: str | None = None
+    TWILIO_PHONE_NUMBER: str | None = None
+    TWILIO_VALIDATE_SIGNATURE: bool = True
+    TWILIO_STREAM_TRACK: str = "inbound_track"
 
     RESEND_API_KEY: str | None = None
     MAILTRAP_API_TOKEN: str | None = None
@@ -92,6 +112,23 @@ class Settings(BaseSettings):
             return [host.strip().strip('"').strip("'") for host in stripped.split(",") if host.strip()]
         return ["*"]
 
+    @field_validator("MEDIA_ALLOWED_IMAGE_TYPES", mode="before")
+    @classmethod
+    def parse_media_allowed_image_types(cls, value: Any) -> list[str]:
+        if isinstance(value, list):
+            return [str(item).strip().lower() for item in value if str(item).strip()]
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped.startswith("[") and stripped.endswith("]"):
+                stripped = stripped[1:-1]
+            return [item.strip().strip('"').strip("'").lower() for item in stripped.split(",") if item.strip()]
+        return ["image/jpeg", "image/png", "image/webp", "image/gif"]
+
+    @field_validator("MEDIA_ROOT")
+    @classmethod
+    def normalize_media_root(cls, value: str) -> str:
+        return str(Path(value).expanduser())
+
     @field_validator("DEBUG", mode="before")
     @classmethod
     def parse_debug_value(cls, value: Any) -> bool:
@@ -108,6 +145,19 @@ class Settings(BaseSettings):
     @field_validator("SMTP_USE_TLS", mode="before")
     @classmethod
     def parse_smtp_tls_value(cls, value: Any) -> bool:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"1", "true", "yes", "on"}:
+                return True
+            if normalized in {"0", "false", "no", "off"}:
+                return False
+        return True
+
+    @field_validator("TWILIO_VALIDATE_SIGNATURE", mode="before")
+    @classmethod
+    def parse_twilio_signature_validation_value(cls, value: Any) -> bool:
         if isinstance(value, bool):
             return value
         if isinstance(value, str):

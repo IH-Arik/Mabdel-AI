@@ -136,12 +136,12 @@ async def refresh_token(payload: RefreshTokenRequest, auth_service: AuthService 
 
 @router.post(
     "/google",
-    response_model=ApiResponse[MessageResponse],
-    responses={501: {"model": ApiErrorResponse}},
+    response_model=ApiResponse[TokenResponse],
+    responses={400: {"model": ApiErrorResponse}, 401: {"model": ApiErrorResponse}, 503: {"model": ApiErrorResponse}},
 )
 async def google_login(payload: GoogleLoginRequest, auth_service: AuthService = Depends(get_auth_service)) -> dict:
     result = await auth_service.google_login(payload)
-    return success_response(data=result.model_dump(), message=result.message)
+    return success_response(data=result.model_dump(), message="Google login successful.")
 
 
 @router.get(

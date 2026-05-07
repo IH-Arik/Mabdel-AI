@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import asyncio
 
+from app.core.config import settings
+from app.services.auth_service import AuthService
+
 
 def _get_latest_otp(db, email: str, purpose: str) -> dict:
     otp = asyncio.run(
@@ -186,3 +189,32 @@ def test_refresh_token_reuse_after_rotation_rejected(client, mock_db) -> None:
     second_refresh = client.post("/api/v1/auth/refresh-token", json={"refresh_token": old_refresh_token})
     assert second_refresh.status_code == 401
     assert second_refresh.json()["error"]["code"] == "INVALID_REFRESH_TOKEN"
+
+
+def test_google_login_creates_verified_user_and_tokens(client, mock_db, monkeypatch) -> None:
+    monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "google-client-id")
+
+    async def fake_verify(self, id_token: str) -> dict:
+        assert id_token == "valid-google-token"
+        return {
+            "sub": "google-user-123",
+            "aud": "google-client-id",
+            "email": "google.user@example.com",
+            "email_verified": "true",
+            "name": "Google User",
+            "picture": "https://lh3.googleusercontent.com/avatar.png",
+        }
+
+    monkeypatch.setattr(AuthService, "_verify_google_id_token", fake_verify)
+
+    response = client.post("/api/v1/auth/google", json={"id_token": "valid-google-token"})
+
+    assert response.status_code == 200
+    payload = response.json()["data"]
+    assert payload["access_token"]
+    assert payload["refresh_token"]
+    assert payload["user"]["email"] == "google.user@example.com"
+    assert payload["user"]["auth_provider"] == "google"
+    user = asyncio.run(mock_db.users.find_one({"email": "google.user@example.com"}))
+    assert user["is_verified"] is True
+    assert user["provider_user_id"] == "google-user-123"

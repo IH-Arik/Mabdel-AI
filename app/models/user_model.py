@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -14,5 +14,9 @@ class UserModel(BaseModel):
     password_hash: str
     is_verified: bool = False
     auth_provider: str = "email"
+    avatar_url: str | None = None
+    date_of_birth: date | None = None
+    country: str | None = None
+    language_preference: str = "EN"
     created_at: datetime
     updated_at: datetime

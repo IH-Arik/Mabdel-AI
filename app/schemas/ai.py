@@ -11,7 +11,7 @@ class AICommandRequest(BaseModel):
 
 
 class AICommandResponse(BaseModel):
-    intent: Literal["invoice", "email", "calendar", "group", "unknown"]
+    intent: Literal["invoice", "email", "bulk_message", "calendar", "lease", "agreement", "group", "call", "unknown"]
     summary: str
     action_required: bool = False
     output: dict = Field(default_factory=dict)

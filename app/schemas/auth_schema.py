@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
@@ -69,6 +69,8 @@ class UserResponse(BaseModel):
     is_verified: bool
     auth_provider: str
     avatar_url: str | None = None
+    date_of_birth: date | None = None
+    country: str | None = None
     language_preference: str = "EN"
     created_at: datetime
 

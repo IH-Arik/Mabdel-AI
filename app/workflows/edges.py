@@ -8,8 +8,14 @@ def route_by_intent(state: WorkflowState) -> str:
         return "create_invoice"
     if state.intent == "email":
         return "send_email"
+    if state.intent == "bulk_message":
+        return "create_bulk_message"
     if state.intent == "calendar":
         return "schedule_meeting"
+    if state.intent == "lease":
+        return "create_lease"
+    if state.intent == "agreement":
+        return "create_agreement"
     if state.intent == "group":
         return "create_group"
     if state.intent == "call":
