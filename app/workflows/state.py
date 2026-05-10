@@ -13,6 +13,7 @@ class WorkflowState:
     intent: Intent = "unknown"
     summary: str = ""
     action_required: bool = False
+    history: list[dict] = field(default_factory=list)
     output: dict = field(default_factory=dict)
 
 
@@ -21,4 +22,5 @@ class WorkflowStateData(TypedDict):
     intent: NotRequired[Intent]
     summary: NotRequired[str]
     action_required: NotRequired[bool]
+    history: NotRequired[list[dict]]
     output: NotRequired[dict]

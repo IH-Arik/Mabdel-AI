@@ -30,14 +30,14 @@ class MabdelAIService:
 
     def generate_response(self, user_text: str, history: Iterable[dict] | None = None) -> dict:
         normalized = user_text.lower().strip()
-        history_count = len(list(history or []))
-        workflow_state = run_assistant_workflow(user_text)
+        history_list = list(history or [])
+        workflow_state = run_assistant_workflow(user_text, history=history_list)
         if workflow_state.intent != "unknown":
             command_type = workflow_state.intent
             navigation = self._navigation_for_intent(workflow_state.intent, user_text)
             return {
                 "state": "responded",
-                "content": self._workflow_response_text(workflow_state.intent),
+                "content": workflow_state.summary or self._workflow_response_text(workflow_state.intent),
                 "command_type": command_type,
                 "workflow": {
                     "engine": workflow_state.output.get("workflow_engine"),
@@ -79,7 +79,7 @@ class MabdelAIService:
 
         return {
             "state": "responded",
-            "content": f"{summary} Context turns reviewed: {history_count}. Request: {user_text.strip()}",
+            "content": f"{summary} Context turns reviewed: {len(history_list)}. Request: {user_text.strip()}",
             "command_type": command_type,
             "workflow": None,
             "navigation": self._navigation_for_intent(command_type, user_text),
@@ -158,16 +158,16 @@ class MabdelAIService:
         try:
             client = OpenAI(api_key=settings.OPENAI_API_KEY)
             speech = client.audio.speech.create(
-                model="gpt-4o-mini-tts",
+                model="tts-1",
                 voice=preset["provider_voice"],
                 input=text,
-                response_format="mp3",
+                response_format="wav",
             )
             audio_bytes = speech.read()
             return {
                 "voice_id": preset["id"],
                 "provider_voice": preset["provider_voice"],
-                "mime_type": "audio/mpeg",
+                "mime_type": "audio/wav",
                 "audio_base64": base64.b64encode(audio_bytes).decode("utf-8"),
                 "status": "generated",
             }
@@ -201,8 +201,8 @@ class MabdelAIService:
 
         try:
             client = OpenAI(api_key=settings.OPENAI_API_KEY)
-            response = client.responses.create(model=settings.OPENAI_MODEL, input=messages)
-            text = getattr(response, "output_text", "").strip()
+            response = client.chat.completions.create(model=settings.OPENAI_MODEL, messages=messages)
+            text = response.choices[0].message.content.strip()
             return text or None
         except Exception:
             return None
@@ -226,7 +226,7 @@ class MabdelAIService:
             buffer = BytesIO(audio_bytes)
             buffer.name = audio_filename or self._filename_from_mime(audio_mime_type)
             transcription = client.audio.transcriptions.create(
-                model="gpt-4o-mini-transcribe",
+                model="whisper-1",
                 file=buffer,
             )
             text = getattr(transcription, "text", "").strip()

@@ -17,6 +17,8 @@ class UserModel(BaseModel):
     avatar_url: str | None = None
     date_of_birth: date | None = None
     country: str | None = None
+    phone_number: str | None = None
+    forwarding_number: str | None = None
     language_preference: str = "EN"
     created_at: datetime
     updated_at: datetime

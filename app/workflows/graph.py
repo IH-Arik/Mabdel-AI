@@ -29,6 +29,7 @@ def _to_workflow_state(data: WorkflowStateData) -> WorkflowState:
         intent=data.get("intent", "unknown"),
         summary=data.get("summary", ""),
         action_required=data.get("action_required", False),
+        history=list(data.get("history", [])),
         output=dict(data.get("output", {})),
     )
 
@@ -39,6 +40,7 @@ def _from_workflow_state(state: WorkflowState) -> WorkflowStateData:
         "intent": state.intent,
         "summary": state.summary,
         "action_required": state.action_required,
+        "history": state.history,
         "output": state.output,
     }
 
@@ -106,20 +108,22 @@ def _build_langgraph_workflow():
 assistant_workflow_graph = _build_langgraph_workflow()
 
 
-def run_assistant_workflow(command: str) -> WorkflowState:
+def run_assistant_workflow(command: str, history: list[dict] | None = None) -> WorkflowState:
+    initial_state = {
+        "command": command,
+        "intent": "unknown",
+        "summary": "",
+        "action_required": False,
+        "history": list(history or []),
+        "output": {"workflow_engine": "langgraph"},
+    }
+
     if assistant_workflow_graph is not None:
-        result = assistant_workflow_graph.invoke(
-            {
-                "command": command,
-                "intent": "unknown",
-                "summary": "",
-                "action_required": False,
-                "output": {"workflow_engine": "langgraph"},
-            }
-        )
+        result = assistant_workflow_graph.invoke(initial_state)
         return _to_workflow_state(result)
 
-    state = WorkflowState(command=command, output={"workflow_engine": "python_fallback"})
+    state = _to_workflow_state(initial_state)
+    state.output["workflow_engine"] = "python_fallback"
     state = parse_intent(state)
     state = collect_data(state)
 

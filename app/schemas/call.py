@@ -42,3 +42,8 @@ class TwilioStreamMessage(BaseModel):
     stop: dict[str, Any] | None = None
 
     model_config = {"populate_by_name": True}
+
+
+class CallActionRequest(BaseModel):
+    action: str  # "receive", "transfer_to_ai", "cancel"
+    user_id: str

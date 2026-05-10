@@ -39,6 +39,10 @@ class CallService:
             return base
         return f"{base}?{urlencode(params)}"
 
+    def build_recording_callback_url(self, user_id: str) -> str:
+        base = f"{settings.PUBLIC_BACKEND_URL.rstrip('/')}{settings.API_V1_PREFIX}/calls/recording"
+        return f"{base}?user_id={user_id}"
+
     def build_twiml_response(
         self,
         *,
@@ -64,6 +68,19 @@ class CallService:
             parameters["to_number"] = to_number
         for name, value in parameters.items():
             SubElement(stream, "Parameter", name=name, value=value)
+        xml = tostring(response, encoding="unicode")
+        return '<?xml version="1.0" encoding="UTF-8"?>' + xml
+
+    def build_dial_twiml(self, to_number: str) -> str:
+        response = Element("Response")
+        SubElement(response, "Dial").text = to_number
+        xml = tostring(response, encoding="unicode")
+        return '<?xml version="1.0" encoding="UTF-8"?>' + xml
+
+    def build_hold_twiml(self, message: str = "Please wait while I connect you...") -> str:
+        response = Element("Response")
+        SubElement(response, "Say").text = message
+        SubElement(response, "Play", loop="0").text = "http://com.twilio.music.classical.s3.amazonaws.com/Classical_1.mp3"
         xml = tostring(response, encoding="unicode")
         return '<?xml version="1.0" encoding="UTF-8"?>' + xml
 
@@ -112,6 +129,17 @@ class CallService:
             "to": payload.get("to") or to_number,
             "from": payload.get("from") or request_from_number,
         }
+
+    async def update_call_twiml(self, call_sid: str, twiml: str) -> bool:
+        self._validate_twilio_outbound_config()
+        endpoint = f"https://api.twilio.com/2010-04-01/Accounts/{settings.TWILIO_ACCOUNT_SID}/Calls/{call_sid}.json"
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                endpoint,
+                data={"Twiml": twiml},
+                auth=(settings.TWILIO_ACCOUNT_SID or "", settings.TWILIO_AUTH_TOKEN or ""),
+            )
+        return response.status_code < 400
 
     async def validate_twilio_request(self, request: Request, form_fields: dict[str, str]) -> None:
         if not settings.TWILIO_VALIDATE_SIGNATURE:

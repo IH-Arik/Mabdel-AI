@@ -1,26 +1,20 @@
 from __future__ import annotations
 
 from app.workflows.state import WorkflowState
+from app.workflows.utils import call_llm, read_prompt
 
 
 def parse_intent(state: WorkflowState) -> WorkflowState:
-    text = state.command.lower()
-    if "bulk" in text and ("email" in text or "mail" in text or "message" in text or "sms" in text):
-        state.intent = "bulk_message"
-    elif "invoice" in text or "bill" in text:
-        state.intent = "invoice"
-    elif "lease" in text or "rental agreement" in text or "rent agreement" in text:
-        state.intent = "lease"
-    elif "agreement" in text or "contract" in text or "nda" in text:
-        state.intent = "agreement"
-    elif "email" in text or "mail" in text:
-        state.intent = "email"
-    elif "meeting" in text or "calendar" in text or "schedule" in text:
-        state.intent = "calendar"
-    elif "group" in text or "team" in text:
-        state.intent = "group"
-    elif "call" in text or "phone" in text or "twilio" in text:
-        state.intent = "call"
+    template = read_prompt("intent_parser.txt")
+    prompt = template.format(command=state.command)
+    
+    intent = call_llm(prompt).lower()
+    
+    # Validation against allowed intents
+    allowed = ["invoice", "email", "bulk_message", "calendar", "lease", "agreement", "group", "call"]
+    if intent in allowed:
+        state.intent = intent
     else:
         state.intent = "unknown"
+        
     return state

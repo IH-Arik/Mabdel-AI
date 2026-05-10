@@ -17,47 +17,103 @@ def inject_styles() -> None:
     st.markdown(
         """
         <style>
-        .block-container { padding-top: 1.4rem; }
-        div[data-testid="stMetric"] {
-            background: #101722;
-            border: 1px solid #223044;
-            border-radius: 10px;
-            padding: 14px;
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        html, body, [data-testid="stAppViewContainer"] {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
         }
+
+        /* Center the mobile container */
+        [data-testid="stAppViewContainer"] > section:nth-child(2) {
+            max-width: 500px !important;
+            margin: 0 auto !important;
+            background-color: #0f172a;
+            border-left: 1px solid #1e293b;
+            border-right: 1px solid #1e293b;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+        }
+
+        .block-container {
+            padding-top: 1rem;
+            padding-bottom: 5rem; /* Space for bottom nav simulation if needed */
+        }
+
+        /* Premium Cards */
         .m-card {
-            background: #111827;
-            border: 1px solid #263244;
-            border-radius: 10px;
-            padding: 14px 16px;
-            margin: 10px 0;
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 1px solid #334155;
+            border-radius: 16px;
+            padding: 18px;
+            margin: 12px 0;
+            transition: all 0.2s ease;
+            cursor: pointer;
         }
-        .m-card strong { color: #f8fafc; }
-        .m-muted { color: #94a3b8; font-size: 0.92rem; }
+        .m-card:hover {
+            border-color: #38bdf8;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(56, 189, 248, 0.1);
+        }
+        .m-card strong { color: #f8fafc; font-size: 1.05rem; }
+        .m-muted { color: #94a3b8; font-size: 0.85rem; margin-top: 4px; }
+        
         .m-pill {
             display: inline-block;
-            padding: 2px 9px;
+            padding: 4px 10px;
             border-radius: 999px;
-            background: #083344;
-            color: #22d3ee;
-            font-size: 0.78rem;
-            margin-right: 6px;
+            background: rgba(56, 189, 248, 0.1);
+            color: #38bdf8;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 8px;
         }
+
+        /* Chat Bubbles */
         .m-bubble-user {
-            background: #06b6d4;
-            color: #001018;
-            padding: 10px 12px;
-            border-radius: 12px;
-            margin: 8px 0 8px auto;
-            max-width: 72%;
+            background: linear-gradient(135deg, #0ea5e9, #0284c7);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 18px 18px 2px 18px;
+            margin: 10px 0 10px auto;
+            max-width: 85%;
+            box-shadow: 0 2px 8px rgba(14, 165, 233, 0.2);
         }
         .m-bubble-other {
-            background: #1f2937;
-            color: #f8fafc;
-            padding: 10px 12px;
-            border-radius: 12px;
-            margin: 8px auto 8px 0;
-            max-width: 72%;
+            background: #1e293b;
+            color: #f1f5f9;
+            padding: 12px 16px;
+            border-radius: 18px 18px 18px 2px;
+            margin: 10px auto 10px 0;
+            max-width: 85%;
+            border: 1px solid #334155;
         }
+
+        /* Metrics */
+        div[data-testid="stMetric"] {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        /* Sidebar Hide/Tweak */
+        [data-testid="stSidebar"] {
+            background-color: #0f172a;
+            border-right: 1px solid #1e293b;
+        }
+
+        /* Buttons */
+        .stButton>button {
+            border-radius: 12px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        /* Hide default Streamlit header */
+        header { visibility: hidden; }
+        footer { visibility: hidden; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -147,25 +203,31 @@ def display_error(error: str | None) -> bool:
     return False
 
 
-def login_panel() -> None:
-    st.sidebar.header("API")
-    st.sidebar.text_input("Base URL", key="api_base_url", value=st.session_state.get("api_base_url", DEFAULT_API_BASE_URL))
-    health_col, logout_col = st.sidebar.columns(2)
-    if health_col.button("Health"):
-        payload, error = api_request("GET", "/health")
-        if error:
-            st.sidebar.error(error)
-        else:
-            st.sidebar.success("Healthy")
-            st.sidebar.json(payload)
-    if logout_col.button("Logout"):
-        st.session_state.pop("access_token", None)
-        st.session_state.pop("current_user", None)
-        st.rerun()
+def login_panel(inline: bool = False) -> None:
+    if not inline:
+        st.sidebar.header("Connection")
+        st.sidebar.text_input("API Base", key="api_base_url", value=st.session_state.get("api_base_url", DEFAULT_API_BASE_URL))
+        
+        if st.sidebar.button("Check Health", use_container_width=True):
+            payload, error = api_request("GET", "/health")
+            if error: st.sidebar.error("Offline")
+            else: st.sidebar.success("Online")
+            
+        if st.sidebar.button("Logout", use_container_width=True):
+            st.session_state.clear()
+            st.rerun()
+            
+        user = st.session_state.get("current_user")
+        if user:
+            st.sidebar.caption(f"Logged in as {user.get('email')}")
+        return
 
-    auth_tab, signup_tab = st.sidebar.tabs(["Login", "Signup"])
+    st.markdown("### Welcome to Mabdel")
+    st.caption("Sign in to your account to continue")
+    
+    auth_tab, signup_tab = st.tabs(["Login", "Create Account"])
     with auth_tab:
-        email = st.text_input("Email")
+        email = st.text_input("Email", placeholder="hello@example.com")
         password = st.text_input("Password", type="password")
         if st.button("Login", type="primary", use_container_width=True):
             payload, error = api_request("POST", "/api/v1/auth/login", json_body={"email": email, "password": password})
@@ -173,39 +235,25 @@ def login_panel() -> None:
                 st.error(error)
                 return
             data = unwrap_data(payload) or {}
-            token = data.get("access_token")
-            if not token:
-                st.error("Login response did not include access_token.")
-                return
-            st.session_state["access_token"] = token
+            st.session_state["access_token"] = data.get("access_token")
             st.session_state["current_user"] = data.get("user")
-            st.success("Logged in")
+            st.success("Welcome back!")
             st.rerun()
+            
     with signup_tab:
         full_name = st.text_input("Full name", key="signup_name")
-        signup_email = st.text_input("Email", key="signup_email")
-        signup_password = st.text_input("Password", type="password", key="signup_password")
-        if st.button("Create Account", use_container_width=True):
-            payload, error = api_request(
-                "POST",
-                "/api/v1/auth/register",
-                json_body={"full_name": full_name, "email": signup_email, "password": signup_password},
-            )
-            st.error(error) if error else st.success("Account created. Check OTP email, then verify below.")
-            render_response(payload, title="Signup debug")
-        otp = st.text_input("OTP code", key="signup_otp")
-        if st.button("Verify OTP", use_container_width=True):
-            payload, error = api_request(
-                "POST",
-                "/api/v1/auth/verify-otp",
-                json_body={"email": signup_email, "code": otp, "purpose": "signup"},
-            )
-            st.error(error) if error else st.success("Verified. Login now.")
-            render_response(payload, title="Verify debug")
-
-    user = st.session_state.get("current_user")
-    if user:
-        st.sidebar.caption(f"Signed in as {user.get('email') or user.get('full_name')}")
+        s_email = st.text_input("Email", key="signup_email")
+        s_pass = st.text_input("Password", type="password", key="signup_password")
+        if st.button("Register", use_container_width=True):
+            _, error = api_request("POST", "/api/v1/auth/register", json_body={"full_name": full_name, "email": s_email, "password": s_pass})
+            if error: st.error(error)
+            else: st.info("Check your email for OTP")
+        
+        otp = st.text_input("OTP Code", key="signup_otp")
+        if st.button("Verify & Activate", use_container_width=True):
+            _, error = api_request("POST", "/api/v1/auth/verify-otp", json_body={"email": s_email, "code": otp, "purpose": "signup"})
+            if error: st.error(error)
+            else: st.success("Activated! You can now login.")
 
 
 def auth_required() -> bool:
@@ -216,34 +264,35 @@ def auth_required() -> bool:
 
 
 def render_home() -> None:
-    st.subheader("Live Dashboard")
+    st.subheader("Overview")
     if not auth_required():
         return
     payload, error = api_request("GET", "/api/v1/smartflow/home")
     if display_error(error):
         return
     data = unwrap_data(payload) or {}
-    cols = st.columns(4)
+    
     stats = data.get("stats") or data.get("summary") or {}
     if not stats:
         stats = {
-            "contacts": len((data.get("contacts") or {}).get("items", [])) if isinstance(data.get("contacts"), dict) else 0,
-            "unread": ((data.get("messages") or {}).get("summary") or {}).get("total_unread", 0) if isinstance(data.get("messages"), dict) else 0,
-            "notifications": ((data.get("notifications") or {}).get("summary") or {}).get("unread_count", 0) if isinstance(data.get("notifications"), dict) else 0,
-            "integrations": len(data.get("integrations") or []),
+            "Contacts": len((data.get("contacts") or {}).get("items", [])) if isinstance(data.get("contacts"), dict) else 0,
+            "Unread": ((data.get("messages") or {}).get("summary") or {}).get("total_unread", 0) if isinstance(data.get("messages"), dict) else 0,
+            "Tasks": ((data.get("notifications") or {}).get("summary") or {}).get("unread_count", 0) if isinstance(data.get("notifications"), dict) else 0,
         }
-    for index, (label, value) in enumerate(list(stats.items())[:4]):
-        cols[index % 4].metric(label.replace("_", " ").title(), value)
+    
+    cols = st.columns(len(stats))
+    for i, (label, val) in enumerate(stats.items()):
+        cols[i].metric(label.title(), val)
 
-    st.markdown("#### Quick Actions")
-    c1, c2, c3 = st.columns(3)
-    if c1.button("Create Sample Contacts", use_container_width=True):
-        seed_sample_contacts()
-    if c2.button("Create Sample Conversation", use_container_width=True):
-        seed_sample_conversation()
-    if c3.button("Refresh Dashboard", use_container_width=True):
-        st.rerun()
-    render_response(data, title="Dashboard debug JSON")
+    st.markdown("---")
+    st.markdown("#### Shortcuts")
+    st.button("✨ Ask Mabdel AI", type="primary", use_container_width=True, on_click=lambda: st.session_state.update({"page": "AI Workflow"}))
+    
+    c1, c2 = st.columns(2)
+    if c1.button("👥 Add Contact", use_container_width=True): seed_sample_contacts()
+    if c2.button("💬 Start Chat", use_container_width=True): seed_sample_conversation()
+    
+    render_response(data, title="Home State Debug")
 
 
 def seed_sample_contacts() -> None:
@@ -317,68 +366,99 @@ def render_contacts() -> None:
 
 
 def render_conversations() -> None:
-    st.subheader("Unified Conversations")
+    st.subheader("Messages")
     if not auth_required():
         return
-    platforms = st.multiselect(
-        "Platforms",
-        PLATFORMS,
-        default=[],
-    )
-    search = st.text_input("Search conversations")
-    params = {"page": 1, "page_size": PAGE_SIZE, "search": search}
-    if platforms:
-        params["platforms"] = ",".join(platforms)
-    payload, error = api_request("GET", "/api/v1/smartflow/conversations", params=params)
-    if display_error(error):
-        return
-    data = unwrap_data(payload) or {}
-    items = data.get("items", [])
-    st.metric("Unread Messages", (data.get("summary") or {}).get("total_unread", 0))
-    left, right = st.columns([0.9, 1.1])
-    with left:
-        st.markdown("#### Inbox")
-        for item in items:
-            label = f"{item.get('platform_label', item.get('platform'))} | {item.get('contact_name') or item.get('title') or 'Conversation'}"
-            preview = item.get("last_message_preview") or "No messages yet"
-            unread = item.get("unread_count", 0)
-            if st.button(f"{label}\n\n{preview} ({unread} unread)", key=f"open_conv_{item['id']}", use_container_width=True):
-                st.session_state["selected_conversation_id"] = item["id"]
-                st.session_state["selected_conversation"] = item
-        render_response(data, title="Inbox debug JSON")
 
-    with right:
-        selected_id = st.session_state.get("selected_conversation_id")
-        selected = st.session_state.get("selected_conversation") or {}
-        st.markdown(f"#### {selected.get('contact_name') or selected.get('title') or 'Conversation'}")
-        if not selected_id:
-            st.info("Select a conversation from the inbox.")
-            return
-        messages_payload, error = api_request("GET", f"/api/v1/smartflow/conversations/{selected_id}/messages", params={"page": 1, "page_size": 50})
+    selected_id = st.session_state.get("selected_conversation_id")
+    
+    if not selected_id:
+        # Inbox View
+        platforms = st.multiselect("Filter Platforms", PLATFORMS, default=[])
+        search = st.text_input("Search messages...", placeholder="Name or content")
+        
+        params = {"page": 1, "page_size": PAGE_SIZE, "search": search}
+        if platforms:
+            params["platforms"] = ",".join(platforms)
+            
+        payload, error = api_request("GET", "/api/v1/smartflow/conversations", params=params)
         if display_error(error):
             return
-        messages = (unwrap_data(messages_payload) or {}).get("items", [])
-        for message in reversed(messages):
-            css = "m-bubble-user" if message.get("direction") == "outbound" else "m-bubble-other"
-            sender = "You" if message.get("direction") == "outbound" else message.get("sender_name", "Contact")
-            st.markdown(
-                f"<div class='{css}'><strong>{sender}</strong><br>{message.get('content', '')}<div class='m-muted'>{message.get('display_time_label') or message.get('timestamp') or ''}</div></div>",
-                unsafe_allow_html=True,
-            )
-        reply = st.chat_input("Type a real outbound message")
-        if reply:
-            payload, error = api_request(
-                "POST",
-                "/api/v1/smartflow/messages",
-                json_body={
-                    "conversation_id": selected_id,
-                    "contact_id": selected.get("contact_id"),
-                    "platform": selected.get("platform", "whatsapp"),
-                    "direction": "outbound",
-                    "content": reply,
-                },
-            )
-            st.error(error) if error else st.rerun()
+            
+        data = unwrap_data(payload) or {}
+        items = data.get("items", [])
+        
+        unread = (data.get("summary") or {}).get("total_unread", 0)
+        if unread > 0:
+            st.warning(f"You have {unread} unread messages")
+            
+        for item in items:
+            label = f"{item.get('contact_name') or item.get('title') or 'Conversation'}"
+            platform = item.get('platform_label', item.get('platform', 'ai')).upper()
+            preview = item.get("last_message_preview") or "No messages yet"
+            unread_count = item.get("unread_count", 0)
+            
+            card_html = f"""
+            <div style='border-bottom: 1px solid #1e293b; padding: 12px 0;'>
+                <div style='display: flex; justify-content: space-between;'>
+                    <span style='font-weight: 600;'>{label}</span>
+                    <span style='font-size: 0.7rem; color: #38bdf8;'>{platform}</span>
+                </div>
+                <div style='color: #94a3b8; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>
+                    {preview}
+                </div>
+                {f"<div style='background: #0ea5e9; width: 8px; height: 8px; border-radius: 50%; margin-top: 4px;'></div>" if unread_count > 0 else ""}
+            </div>
+            """
+            if st.button(label, key=f"btn_conv_{item['id']}", use_container_width=True, help=preview):
+                st.session_state["selected_conversation_id"] = item["id"]
+                st.session_state["selected_conversation"] = item
+                st.rerun()
+        
+        render_response(data, title="Inbox debug JSON")
+    else:
+        # Chat View
+        selected = st.session_state.get("selected_conversation") or {}
+        
+        # Header with Back Button
+        c1, c2 = st.columns([1, 5])
+        if c1.button("←", key="back_to_inbox"):
+            st.session_state.pop("selected_conversation_id", None)
+            st.session_state.pop("selected_conversation", None)
+            st.rerun()
+        c2.markdown(f"**{selected.get('contact_name') or selected.get('title') or 'Chat'}**")
+        
+        messages_payload, error = api_request("GET", f"/api/v1/smartflow/conversations/{selected_id}/messages", params={"page": 1, "page_size": 50})
+        if not display_error(error):
+            messages = (unwrap_data(messages_payload) or {}).get("items", [])
+            for message in reversed(messages):
+                is_user = message.get("direction") == "outbound"
+                css = "m-bubble-user" if is_user else "m-bubble-other"
+                sender = "You" if is_user else message.get("sender_name", "Contact")
+                time_label = message.get("display_time_label") or message.get("timestamp") or ""
+                
+                st.markdown(
+                    f"<div class='{css}'><strong>{sender}</strong><br>{message.get('content', '')}<div class='m-muted' style='font-size: 0.65rem; margin-top: 4px; text-align: right;'>{time_label}</div></div>",
+                    unsafe_allow_html=True,
+                )
+            
+            reply = st.chat_input("Message...")
+            if reply:
+                payload, error = api_request(
+                    "POST",
+                    "/api/v1/smartflow/messages",
+                    json_body={
+                        "conversation_id": selected_id,
+                        "contact_id": selected.get("contact_id"),
+                        "platform": selected.get("platform", "whatsapp"),
+                        "direction": "outbound",
+                        "content": reply,
+                    },
+                )
+                if not error:
+                    st.rerun()
+                else:
+                    st.error(error)
 
 
 def render_integrations() -> None:
@@ -615,7 +695,7 @@ def render_ai_workflow() -> None:
     intent = st.selectbox("Intent", ["invoice", "bulk_message", "calendar", "lease", "agreement"])
     prompt = st.text_area("Command", value="Create an invoice for Alex for $1200 due next Friday")
     if st.button("Run AI and Prepare Form", type="primary"):
-        payload, error = api_request("POST", "/api/v1/smartflow/ai/workflow-prefill", json_body={"workflow_intent": intent, "message": prompt})
+        payload, error = api_request("POST", "/api/v1/smartflow/ai/workflow-prefill", json_body={"workflow_intent": intent, "transcript": prompt})
         if display_error(error):
             return
         data = unwrap_data(payload) or {}
@@ -630,7 +710,7 @@ def render_ai_workflow() -> None:
     with st.expander("Raw AI chat"):
         message = st.text_area("Message", key="ai_chat_message")
         if st.button("Send Chat"):
-            payload, error = api_request("POST", "/api/v1/smartflow/ai/chat", json_body={"message": message})
+            payload, error = api_request("POST", "/api/v1/smartflow/ai/chat", json_body={"content": message})
             st.error(error) if error else st.json(unwrap_data(payload))
 
 
@@ -654,27 +734,34 @@ def render_api_console() -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="Mabdel Live App", page_icon="M", layout="wide")
+    st.set_page_config(page_title="Mabdel AI", page_icon="M", layout="centered")
     inject_styles()
-    st.title("Mabdel Live App")
-    st.caption("Real Streamlit frontend connected to the running Mabdel backend.")
-    login_panel()
+    
+    # Custom mobile-like header
+    cols = st.columns([1, 4, 1])
+    with cols[1]:
+        st.markdown("<h2 style='text-align: center; margin-top: -20px; margin-bottom: 0;'>Mabdel</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #94a3b8; font-size: 0.8rem;'>SmartFlow Mobile Console</p>", unsafe_allow_html=True)
+    
+    if not st.session_state.get("access_token"):
+        login_panel(inline=True)
+        return
+
+    login_panel(inline=False) # Sidebar part
 
     pages = {
         "Dashboard": render_home,
+        "Messages": render_conversations,
         "Contacts": render_contacts,
-        "Unified Conversations": render_conversations,
-        "Social Integrations": render_integrations,
-        "Invoices": render_invoices,
-        "Bulk Messages": render_bulk_messages,
-        "Leases": lambda: render_documents("leases"),
-        "Agreements": lambda: render_documents("agreements"),
-        "Calls": render_calls,
-        "Notifications": render_notifications,
         "AI Workflow": render_ai_workflow,
-        "Raw API Console": render_api_console,
+        "Invoices": render_invoices,
+        "Documents": lambda: render_documents("agreements"),
+        "Integrations": render_integrations,
+        "Settings": render_notifications, # Renaming for mobile feel
     }
-    selected = st.sidebar.radio("Pages", list(pages.keys()))
+    
+    # Bottom Nav simulation using sidebar but with better naming
+    selected = st.sidebar.radio("Navigation", list(pages.keys()))
     pages[selected]()
 
 

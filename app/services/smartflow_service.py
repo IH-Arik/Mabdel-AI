@@ -1001,6 +1001,25 @@ class SmartFlowService:
         page_result["items"] = [await self._serialize_calendar_event(item) for item in page_result["items"]]
         return page_result
 
+    async def find_free_slots(self, user_id: str, day: date) -> list[str]:
+        # Simple implementation: 9 AM to 5 PM, 1 hour slots
+        start_of_day = datetime.combine(day, datetime.min.time())
+        end_of_day = datetime.combine(day, datetime.max.time())
+
+        events = await self.db.calendar_events.find({
+            "user_id": user_id,
+            "starts_at": {"$gte": start_of_day, "$lte": end_of_day}
+        }).to_list(length=100)
+
+        # Mock available slots for now
+        all_slots = ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"]
+        busy_slots = []
+        for event in events:
+            if "starts_at" in event and isinstance(event["starts_at"], datetime):
+                busy_slots.append(event["starts_at"].strftime("%H:%M"))
+
+        return [slot for slot in all_slots if slot not in busy_slots]
+
     async def get_calendar_event(self, user_id: str, event_id: str) -> dict:
         event = await self._get_owned_document(self.db.calendar_events, user_id, event_id, "EVENT_NOT_FOUND")
         return await self._serialize_calendar_event(event)
