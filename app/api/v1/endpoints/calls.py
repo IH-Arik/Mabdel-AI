@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query, Request, Response, WebSocket
 from fastapi.responses import PlainTextResponse
+import asyncio
 
 from app.dependencies import get_mongo_database
 from app.schemas.call import CallActionRequest, TwilioStatusCallbackPayload, TwilioWebhookPayload
@@ -192,8 +193,13 @@ async def call_stream(websocket: WebSocket, call_id: str) -> None:
     agent.user_id = user_id_val
     active_sessions[call_id] = agent
 
+    greeting_task = None
+
     async def send_to_twilio(message: dict):
-        await websocket.send_json(message)
+        try:
+            await websocket.send_json(message)
+        except Exception:
+            pass
 
     try:
         while True:
@@ -214,8 +220,8 @@ async def call_stream(websocket: WebSocket, call_id: str) -> None:
                 await websocket.send_json(
                     call_service.build_stream_started_event(call_id, stream_sid=stream_message.stream_sid).model_dump()
                 )
-                # Greet the user
-                await agent.greet(send_to_twilio)
+                # Greet the user in the background to avoid blocking the message loop
+                greeting_task = asyncio.create_task(agent.greet(send_to_twilio))
             elif stream_message.event == "media":
                 if stream_message.media and "payload" in stream_message.media:
                     # Pass audio to agent for processing
@@ -233,14 +239,21 @@ async def call_stream(websocket: WebSocket, call_id: str) -> None:
                     ).model_dump()
                 )
             elif stream_message.event == "stop":
+                if greeting_task:
+                    greeting_task.cancel()
                 await websocket.send_json(
                     call_service.build_stream_stopped_event(call_id, stream_sid=stream_message.stream_sid).model_dump()
                 )
                 await agent.finalize_session()
                 break
     finally:
+        if greeting_task:
+            greeting_task.cancel()
         agent = active_sessions.get(call_id)
         if agent:
             await agent.finalize_session()
         active_sessions.pop(call_id, None)
-        await websocket.close()
+        try:
+            await websocket.close()
+        except Exception:
+            pass

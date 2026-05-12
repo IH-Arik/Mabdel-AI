@@ -4,9 +4,8 @@ from app.workflows.state import WorkflowState
 
 
 def route_by_intent(state: WorkflowState) -> str:
-    if state.action_required:
+    if state.intent == "unknown":
         return "finalize"
-        
     if state.intent == "invoice":
         return "create_invoice"
     if state.intent == "email":

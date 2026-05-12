@@ -33,6 +33,8 @@ class AuthRepository:
             "date_of_birth": None,
             "country": None,
             "language_preference": "EN",
+            "role": "user",
+            "organization_id": None,
             "notification_preferences": {
                 "general_notification": True,
                 "sound": True,
@@ -72,6 +74,8 @@ class AuthRepository:
             "date_of_birth": None,
             "country": None,
             "language_preference": "EN",
+            "role": "user",
+            "organization_id": None,
             "notification_preferences": {
                 "general_notification": True,
                 "sound": True,

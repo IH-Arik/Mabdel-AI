@@ -20,5 +20,7 @@ class UserModel(BaseModel):
     phone_number: str | None = None
     forwarding_number: str | None = None
     language_preference: str = "EN"
+    role: str = "user"
+    organization_id: str | None = None
     created_at: datetime
     updated_at: datetime

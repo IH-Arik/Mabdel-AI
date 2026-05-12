@@ -31,4 +31,18 @@ async def get_current_user(
     return user
 
 
-__all__ = ["get_mongo_database", "get_current_user", "oauth2_scheme"]
+def require_role(allowed_roles: list[str]):
+    async def role_checker(current_user: dict = Depends(get_current_user)) -> dict:
+        if current_user.get("role") not in allowed_roles:
+            raise AppException(
+                status_code=403,
+                code="FORBIDDEN",
+                message="You do not have permission to access this resource.",
+                details={"required_roles": allowed_roles, "current_role": current_user.get("role")},
+            )
+        return current_user
+
+    return role_checker
+
+
+__all__ = ["get_mongo_database", "get_current_user", "require_role", "oauth2_scheme"]

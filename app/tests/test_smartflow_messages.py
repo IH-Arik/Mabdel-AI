@@ -280,7 +280,7 @@ def test_ai_voice_invoice_command_returns_navigation_redirect(client, mock_db):
     assert response.status_code == 200
     data = response.json()["data"]
     assert data["transcript"] == "Create invoice for Sarah"
-    assert data["ai_response"] == "Sure, opening the invoice creator now."
+    assert data["ai_response"] == "Invoice workflow prepared."
     assert data["workflow"]["engine"] == "langgraph"
     assert data["workflow"]["intent"] == "invoice"
     assert data["navigation"]["should_redirect"] is True

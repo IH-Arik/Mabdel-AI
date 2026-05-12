@@ -22,3 +22,5 @@ Return a JSON object:
 
 If no fields are missing, set "is_complete" to true and "missing_fields" to [].
 If fields are missing, set "is_complete" to false and provide a "clarification_question".
+HOWEVER, if the command has enough information to identify the main entities (like recipient or tenant), you MAY set "is_complete" to true to proceed to a draft, even if minor fields are missing.
+The goal is to be helpful and reach the draft screen quickly.
