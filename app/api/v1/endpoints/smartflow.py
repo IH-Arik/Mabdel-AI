@@ -72,6 +72,7 @@ from app.schemas.smartflow import (
     TypingStateRequest,
     UserReportCreateRequest,
     VoiceCommandRequest,
+    VoiceCommandResponse,
 )
 from app.schemas.common import ApiResponse
 from app.services.smartflow_service import SmartFlowService
@@ -507,12 +508,12 @@ async def replay_ai_history(
     return success_response(data=data, message="AI command replayed successfully.")
 
 
-@router.post("/voice/transcribe")
+@router.post("/voice/transcribe", response_model=ApiResponse[VoiceCommandResponse])
 async def transcribe_voice(
     payload: VoiceCommandRequest,
     current_user: dict = Depends(get_current_user),
     service: SmartFlowService = Depends(get_smartflow_service),
-) -> dict:
+) -> Any:
     data = await service.process_voice_command(
         str(current_user["_id"]),
         payload.transcript,
@@ -526,12 +527,12 @@ async def transcribe_voice(
     return success_response(data=data, message="Voice command processed successfully.")
 
 
-@router.post("/ai/voice-chat")
+@router.post("/ai/voice-chat", response_model=ApiResponse[VoiceCommandResponse])
 async def ai_voice_chat(
     payload: VoiceCommandRequest,
     current_user: dict = Depends(get_current_user),
     service: SmartFlowService = Depends(get_smartflow_service),
-) -> dict:
+) -> Any:
     data = await service.process_voice_command(
         str(current_user["_id"]),
         payload.transcript,
@@ -545,7 +546,7 @@ async def ai_voice_chat(
     return success_response(data=data, message="AI voice chat processed successfully.")
 
 
-@router.post("/ai/voice-chat-upload")
+@router.post("/ai/voice-chat-upload", response_model=ApiResponse[VoiceCommandResponse])
 async def ai_voice_chat_upload(
     audio_file: UploadFile = File(...),
     response_mode: str = Form(default="audio"),
@@ -553,7 +554,7 @@ async def ai_voice_chat_upload(
     transcript: str | None = Form(default=None),
     current_user: dict = Depends(get_current_user),
     service: SmartFlowService = Depends(get_smartflow_service),
-) -> dict:
+) -> Any:
     audio_bytes = await audio_file.read()
     audio_base64 = base64.b64encode(audio_bytes).decode("utf-8") if audio_bytes else None
     data = await service.process_voice_command(
@@ -575,8 +576,13 @@ async def ai_workflow_prefill(
     current_user: dict = Depends(get_current_user),
     service: SmartFlowService = Depends(get_smartflow_service),
 ) -> dict:
-    data = await service.process_workflow_prefill(str(current_user["_id"]), payload.model_dump())
-    return success_response(data=data, message="AI workflow form prefill generated successfully.")
+    try:
+        data = await service.process_workflow_prefill(str(current_user["_id"]), payload.model_dump())
+        return success_response(data=data, message="AI workflow form prefill generated successfully.")
+    except Exception as exc:
+        logger.error(f"AI Workflow Prefill Error: {exc}", exc_info=True)
+        raise
+
 
 
 @router.get("/calendar/events")

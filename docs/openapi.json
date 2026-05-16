@@ -782,7 +782,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/VerifyOTPRequest"
+                "$ref": "#/components/schemas/app__schemas__auth_schema__VerifyOTPRequest"
               }
             }
           },
@@ -904,7 +904,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ResetPasswordRequest"
+                "$ref": "#/components/schemas/app__schemas__auth_schema__ResetPasswordRequest"
               }
             }
           },
@@ -2544,13 +2544,68 @@
         }
       }
     },
+    "/api/v1/calls/{call_sid}/action": {
+      "post": {
+        "tags": [
+          "Calls"
+        ],
+        "summary": "Call Action",
+        "description": "User action on a live call (receive, transfer_to_ai, cancel).",
+        "operationId": "call_action_api_v1_calls__call_sid__action_post",
+        "parameters": [
+          {
+            "name": "call_sid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Call Sid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CallActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Call Action Api V1 Calls  Call Sid  Action Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/calls/incoming": {
       "post": {
         "tags": [
           "Calls"
         ],
         "summary": "Incoming Call",
-        "description": "Twilio Voice webhook.\nReturns TwiML that connects the live call to a WebSocket media stream.",
+        "description": "Twilio Voice webhook.\nReturns TwiML that plays hold music while waiting for user interaction.",
         "operationId": "incoming_call_api_v1_calls_incoming_post",
         "responses": {
           "200": {
@@ -2558,6 +2613,58 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/calls/recording": {
+      "post": {
+        "tags": [
+          "Calls"
+        ],
+        "summary": "Recording Callback",
+        "description": "Twilio recording callback.",
+        "operationId": "recording_callback_api_v1_calls_recording_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Recording Callback Api V1 Calls Recording Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -4745,9 +4852,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Transcribe Voice Api V1 Smartflow Voice Transcribe Post"
+                  "$ref": "#/components/schemas/ApiResponse_VoiceCommandResponse_"
                 }
               }
             }
@@ -4793,9 +4898,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Ai Voice Chat Api V1 Smartflow Ai Voice Chat Post"
+                  "$ref": "#/components/schemas/ApiResponse_VoiceCommandResponse_"
                 }
               }
             }
@@ -4841,9 +4944,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Ai Voice Chat Upload Api V1 Smartflow Ai Voice Chat Upload Post"
+                  "$ref": "#/components/schemas/ApiResponse_VoiceCommandResponse_"
                 }
               }
             }
@@ -10332,7 +10433,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ChangePasswordRequest"
+                "$ref": "#/components/schemas/app__schemas__smartflow__ChangePasswordRequest"
               }
             }
           },
@@ -10395,6 +10496,1491 @@
             "OAuth2PasswordBearer": []
           }
         ]
+      }
+    },
+    "/api/v1/dashboard/admin/summary": {
+      "get": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Get Admin Summary",
+        "description": "Get a high-level summary of organization metrics including user counts, AI usage, and revenue.",
+        "operationId": "get_admin_summary_api_v1_dashboard_admin_summary_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_DashboardSummary_"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dashboard/admin/users": {
+      "get": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "List Users",
+        "description": "Get a paginated list of users for the dashboard table. Supports searching and filtering by status (Blocked/Active).",
+        "operationId": "list_users_api_v1_dashboard_admin_users_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_PaginatedResponse_UserListItem__"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/admin/users/{user_id}": {
+      "get": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Get User Details",
+        "description": "Get detailed information about a specific user. Supports the 'User Details' and 'Provider Details' screens.",
+        "operationId": "get_user_details_api_v1_dashboard_admin_users__user_id__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_UserListItem_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/admin/users/{user_id}/status": {
+      "patch": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Update User Status",
+        "description": "Update a user's status (e.g., 'active', 'blocked'). This corresponds to the 'Block/Unblock' buttons in the UI.",
+        "operationId": "update_user_status_api_v1_dashboard_admin_users__user_id__status_patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_bool_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/admin/create-admin": {
+      "post": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Create Organization Admin",
+        "description": "Create a new administrator for an organization. \nStrictly restricted to Super Admins. Corresponds to the 'Create Admin' screen.",
+        "operationId": "create_organization_admin_api_v1_dashboard_admin_create_admin_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_str_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dashboard/admin/users-growth": {
+      "get": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Get Users Growth",
+        "description": "Get analytical data for user growth trends over time for charting.",
+        "operationId": "get_users_growth_api_v1_dashboard_admin_users_growth_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_GrowthMetrics_"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dashboard/admin/earnings": {
+      "get": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Get Earnings Report",
+        "description": "Get a summary of earnings (Today, This Month, Total) for the organization.",
+        "operationId": "get_earnings_report_api_v1_dashboard_admin_earnings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_EarningsSummary_"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dashboard/admin/earnings/transactions": {
+      "get": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "List Transactions",
+        "description": "Get a paginated list of transactions for the Earnings table.",
+        "operationId": "list_transactions_api_v1_dashboard_admin_earnings_transactions_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_PaginatedResponse_TransactionListItem__"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/admin/earnings/transactions/{trx_id}": {
+      "get": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Get Trx Details",
+        "description": "Get detailed information about a specific transaction for the 'Transaction Details' pop-up.",
+        "operationId": "get_trx_details_api_v1_dashboard_admin_earnings_transactions__trx_id__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "trx_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Trx Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_TransactionDetails_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/admin/earnings/transactions/{trx_id}/invoice": {
+      "get": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Download Invoice",
+        "description": "Download the PDF invoice for a transaction.",
+        "operationId": "download_invoice_api_v1_dashboard_admin_earnings_transactions__trx_id__invoice_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "trx_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Trx Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/admin/reports": {
+      "get": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Get User Reports",
+        "description": "Get a paginated list of user reports (Moderation/Complaints). Corresponds to the 'Report' screen.",
+        "operationId": "get_user_reports_api_v1_dashboard_admin_reports_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_PaginatedResponse_UserReportListItem__"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/admin/profile": {
+      "get": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Get Admin Profile",
+        "description": "Get the logged-in admin's profile data. Corresponds to the 'Profile' screen header.",
+        "operationId": "get_admin_profile_api_v1_dashboard_admin_profile_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_UserListItem_"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Update Profile",
+        "description": "Update admin profile (Name, Email, Contact). Corresponds to the 'Edit Profile' screen.",
+        "operationId": "update_profile_api_v1_dashboard_admin_profile_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_bool_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dashboard/admin/admins": {
+      "get": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "List Admins",
+        "description": "List all administrators. Only accessible by Super Admins.",
+        "operationId": "list_admins_api_v1_dashboard_admin_admins_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_list_UserListItem__"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dashboard/admin/settings": {
+      "get": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Get Dashboard Settings",
+        "description": "Get dashboard specific settings and configurations.",
+        "operationId": "get_dashboard_settings_api_v1_dashboard_admin_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_dict_"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dashboard/admin/subscriptions": {
+      "get": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "List Subscriptions",
+        "description": "List all available subscription plans for the organization.",
+        "operationId": "list_subscriptions_api_v1_dashboard_admin_subscriptions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_list_SubscriptionPlan__"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Create Subscription Plan",
+        "description": "Create a new subscription plan (Price, Interval, Features). Only for Super Admins.",
+        "operationId": "create_subscription_plan_api_v1_dashboard_admin_subscriptions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionPlanCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_str_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dashboard/admin/ai/stats": {
+      "get": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Get Ai Stats",
+        "description": "Get AI performance metrics and usage trends for the 'AI Insights & Monitoring' section.",
+        "operationId": "get_ai_stats_api_v1_dashboard_admin_ai_stats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_AIStats_"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dashboard/admin/ai/logs": {
+      "get": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Get Ai Logs",
+        "description": "Get recent AI activity logs for real-time monitoring.",
+        "operationId": "get_ai_logs_api_v1_dashboard_admin_ai_logs_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_list_AILog__"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/admin/change-password": {
+      "post": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Change Password",
+        "description": "Change admin password. Corresponds to the 'Change Password' screen.",
+        "operationId": "change_password_api_v1_dashboard_admin_change_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Dashboard__app__schemas__dashboard_schemas__ChangePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_bool_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dashboard/admin/logout": {
+      "post": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Logout",
+        "description": "Invalidate the current session. Corresponds to the 'Confirm logging out!' modal.",
+        "operationId": "logout_api_v1_dashboard_admin_logout_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_bool_"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dashboard/admin/settings/content": {
+      "get": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Get Settings Page Content",
+        "description": "Fetch static content for settings pages. Corresponds to Settings Menu items.",
+        "operationId": "get_settings_page_content_api_v1_dashboard_admin_settings_content_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Type"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_str_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Update Settings Page Content",
+        "description": "Update static content for settings pages (Privacy, Terms, etc.). Corresponds to the 'Save' button.",
+        "operationId": "update_settings_page_content_api_v1_dashboard_admin_settings_content_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsContent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_bool_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/admin/auth/forgot-password": {
+      "post": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Forgot Password",
+        "description": "Request an OTP for password reset. Corresponds to 'Forgot Password' screen.",
+        "operationId": "forgot_password_api_v1_dashboard_admin_auth_forgot_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_NoneType_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/admin/auth/verify-otp": {
+      "post": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Verify Otp",
+        "description": "Verify the OTP sent to email. Corresponds to 'OTP Verification' screen.",
+        "operationId": "verify_otp_api_v1_dashboard_admin_auth_verify_otp_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Dashboard__app__schemas__dashboard_schemas__VerifyOTPRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_bool_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/admin/auth/reset-password": {
+      "post": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Reset Password",
+        "description": "Reset password using valid OTP. Final step of forgot password flow.",
+        "operationId": "reset_password_api_v1_dashboard_admin_auth_reset_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Dashboard__app__schemas__dashboard_schemas__ResetPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_bool_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/admin/chats": {
+      "get": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Get All Conversations",
+        "description": "Get all active conversations. Corresponds to the left panel of the 'Inbox' screen.",
+        "operationId": "get_all_conversations_api_v1_dashboard_admin_chats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_list_ChatConversation__"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dashboard/admin/chats/{user_id}/messages": {
+      "get": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Get Chat Messages",
+        "description": "Get message history for a specific user. Corresponds to the chat bubbles on the 'Inbox' screen.",
+        "operationId": "get_chat_messages_api_v1_dashboard_admin_chats__user_id__messages_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_list_ChatMessage__"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Dashboard Admin"
+        ],
+        "summary": "Send Message",
+        "description": "Send a message to a user. Supports both text and images.",
+        "operationId": "send_message_api_v1_dashboard_admin_chats__user_id__messages_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "text",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Text"
+            }
+          },
+          {
+            "name": "image_url",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Image Url"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_NoneType_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/super/platform-summary": {
+      "get": {
+        "tags": [
+          "Dashboard Super Admin"
+        ],
+        "summary": "Get Platform Summary",
+        "description": "Get a global summary of the entire platform's performance, including total users across all organizations and total revenue.",
+        "operationId": "get_platform_summary_api_v1_dashboard_super_platform_summary_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_DashboardSummary_"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dashboard/super/global-growth": {
+      "get": {
+        "tags": [
+          "Dashboard Super Admin"
+        ],
+        "summary": "Get Global Growth",
+        "description": "Get analytical data for global platform growth trends for high-level charts.",
+        "operationId": "get_global_growth_api_v1_dashboard_super_global_growth_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_GrowthMetrics_"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dashboard/notifications/": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "List Notifications",
+        "description": "Get a paginated list of notifications for the current user. \nThis supports the 'All Notifications' view and the 'Load More' action.",
+        "operationId": "list_notifications_api_v1_dashboard_notifications__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_PaginatedResponse_NotificationItem__"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/notifications/{notification_id}/read": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Mark Notification As Read",
+        "description": "Mark a specific notification as read.",
+        "operationId": "mark_notification_as_read_api_v1_dashboard_notifications__notification_id__read_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "notification_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Notification Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_bool_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/notifications/unread-count": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Get Unread Notifications Count",
+        "description": "Get the number of unread notifications for the current user. Used for the UI badge.",
+        "operationId": "get_unread_notifications_count_api_v1_dashboard_notifications_unread_count_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseResponse_int_"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dashboard/webhooks/stripe": {
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Stripe Webhook",
+        "description": "Endpoint for Stripe Webhooks. \nIn production, you should verify the stripe signature here.",
+        "operationId": "stripe_webhook_api_v1_dashboard_webhooks_stripe_post",
+        "parameters": [
+          {
+            "name": "stripe-signature",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Stripe-Signature"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/health": {
@@ -10506,6 +12092,100 @@
           "command"
         ],
         "title": "AICommandRequest"
+      },
+      "AILog": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "tokens_used": {
+            "type": "integer",
+            "title": "Tokens Used"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "action",
+          "status",
+          "tokens_used",
+          "timestamp"
+        ],
+        "title": "AILog"
+      },
+      "AIStats": {
+        "properties": {
+          "total_requests": {
+            "type": "integer",
+            "title": "Total Requests"
+          },
+          "success_rate": {
+            "type": "number",
+            "title": "Success Rate"
+          },
+          "avg_response_time": {
+            "type": "number",
+            "title": "Avg Response Time"
+          },
+          "total_tokens_used": {
+            "type": "integer",
+            "title": "Total Tokens Used"
+          },
+          "task_distribution": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Task Distribution"
+          },
+          "error_breakdown": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Error Breakdown"
+          },
+          "usage_trend": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Usage Trend"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_requests",
+          "success_rate",
+          "avg_response_time",
+          "total_tokens_used",
+          "task_distribution",
+          "error_breakdown",
+          "usage_trend"
+        ],
+        "title": "AIStats"
       },
       "AIWorkflowPrefillRequest": {
         "properties": {
@@ -10633,6 +12313,45 @@
         },
         "type": "object",
         "title": "AcceptAllPermissionsRequest"
+      },
+      "AdminCreateRequest": {
+        "properties": {
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          },
+          "organization_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization Id"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role",
+            "default": "admin"
+          }
+        },
+        "type": "object",
+        "required": [
+          "full_name",
+          "email",
+          "password"
+        ],
+        "title": "AdminCreateRequest"
       },
       "AgreementCreateRequest": {
         "properties": {
@@ -11620,6 +13339,32 @@
         "type": "object",
         "title": "ApiResponse[UserResponse]"
       },
+      "ApiResponse_VoiceCommandResponse_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "Request successful."
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VoiceCommandResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ApiResponse[VoiceCommandResponse]"
+      },
       "ApiResponse_list_OnboardingSlideResponse__": {
         "properties": {
           "success": {
@@ -11737,11 +13482,670 @@
         ],
         "title": "AppConfigResponseData"
       },
+      "BaseResponse_AIStats_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AIStats"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "BaseResponse[AIStats]"
+      },
+      "BaseResponse_DashboardSummary_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DashboardSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "BaseResponse[DashboardSummary]"
+      },
+      "BaseResponse_EarningsSummary_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EarningsSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "BaseResponse[EarningsSummary]"
+      },
+      "BaseResponse_GrowthMetrics_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GrowthMetrics"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "BaseResponse[GrowthMetrics]"
+      },
+      "BaseResponse_NoneType_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "type": "null",
+            "title": "Data"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "BaseResponse[NoneType]"
+      },
+      "BaseResponse_PaginatedResponse_NotificationItem__": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaginatedResponse_NotificationItem_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "BaseResponse[PaginatedResponse[NotificationItem]]"
+      },
+      "BaseResponse_PaginatedResponse_TransactionListItem__": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaginatedResponse_TransactionListItem_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "BaseResponse[PaginatedResponse[TransactionListItem]]"
+      },
+      "BaseResponse_PaginatedResponse_UserListItem__": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaginatedResponse_UserListItem_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "BaseResponse[PaginatedResponse[UserListItem]]"
+      },
+      "BaseResponse_PaginatedResponse_UserReportListItem__": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaginatedResponse_UserReportListItem_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "BaseResponse[PaginatedResponse[UserReportListItem]]"
+      },
+      "BaseResponse_TransactionDetails_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TransactionDetails"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "BaseResponse[TransactionDetails]"
+      },
+      "BaseResponse_UserListItem_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserListItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "BaseResponse[UserListItem]"
+      },
+      "BaseResponse_bool_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "BaseResponse[bool]"
+      },
+      "BaseResponse_dict_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "BaseResponse[dict]"
+      },
+      "BaseResponse_int_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "BaseResponse[int]"
+      },
+      "BaseResponse_list_AILog__": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AILog"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "BaseResponse[list[AILog]]"
+      },
+      "BaseResponse_list_ChatConversation__": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ChatConversation"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "BaseResponse[list[ChatConversation]]"
+      },
+      "BaseResponse_list_ChatMessage__": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ChatMessage"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "BaseResponse[list[ChatMessage]]"
+      },
+      "BaseResponse_list_SubscriptionPlan__": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SubscriptionPlan"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "BaseResponse[list[SubscriptionPlan]]"
+      },
+      "BaseResponse_list_UserListItem__": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/UserListItem"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "BaseResponse[list[UserListItem]]"
+      },
+      "BaseResponse_str_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "data": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "BaseResponse[str]"
+      },
       "Body_ai_voice_chat_upload_api_v1_smartflow_ai_voice_chat_upload_post": {
         "properties": {
           "audio_file": {
             "type": "string",
-            "format": "binary",
+            "contentMediaType": "application/octet-stream",
             "title": "Audio File"
           },
           "response_mode": {
@@ -11782,7 +14186,7 @@
         "properties": {
           "logo_file": {
             "type": "string",
-            "format": "binary",
+            "contentMediaType": "application/octet-stream",
             "title": "Logo File"
           }
         },
@@ -11796,7 +14200,7 @@
         "properties": {
           "avatar_file": {
             "type": "string",
-            "format": "binary",
+            "contentMediaType": "application/octet-stream",
             "title": "Avatar File"
           }
         },
@@ -11810,7 +14214,7 @@
         "properties": {
           "avatar_file": {
             "type": "string",
-            "format": "binary",
+            "contentMediaType": "application/octet-stream",
             "title": "Avatar File"
           }
         },
@@ -12833,6 +15237,24 @@
         "type": "object",
         "title": "CallAISummaryUpdateRequest"
       },
+      "CallActionRequest": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action",
+          "user_id"
+        ],
+        "title": "CallActionRequest"
+      },
       "CallLogCreateRequest": {
         "properties": {
           "contact_id": {
@@ -13159,40 +15581,124 @@
         ],
         "title": "CallTranscriptUpdateRequest"
       },
-      "ChangePasswordRequest": {
+      "ChartDataPoint": {
         "properties": {
-          "current_password": {
+          "label": {
             "type": "string",
-            "maxLength": 128,
-            "minLength": 8,
-            "title": "Current Password"
+            "title": "Label"
           },
-          "new_password": {
+          "value": {
+            "type": "number",
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "ChartDataPoint"
+      },
+      "ChatConversation": {
+        "properties": {
+          "id": {
             "type": "string",
-            "maxLength": 128,
-            "minLength": 8,
-            "title": "New Password"
+            "title": "Id"
           },
-          "confirm_password": {
+          "user_name": {
+            "type": "string",
+            "title": "User Name"
+          },
+          "avatar_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 128,
-                "minLength": 8
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Confirm Password"
+            "title": "Avatar Url"
+          },
+          "last_message": {
+            "type": "string",
+            "title": "Last Message"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          },
+          "unread_count": {
+            "type": "integer",
+            "title": "Unread Count",
+            "default": 0
           }
         },
         "type": "object",
         "required": [
-          "current_password",
-          "new_password"
+          "id",
+          "user_name",
+          "last_message",
+          "timestamp"
         ],
-        "title": "ChangePasswordRequest"
+        "title": "ChatConversation"
+      },
+      "ChatMessage": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "sender_id": {
+            "type": "string",
+            "title": "Sender Id"
+          },
+          "receiver_id": {
+            "type": "string",
+            "title": "Receiver Id"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          },
+          "is_me": {
+            "type": "boolean",
+            "title": "Is Me"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "sender_id",
+          "receiver_id",
+          "timestamp",
+          "is_me"
+        ],
+        "title": "ChatMessage"
       },
       "ContactCreateRequest": {
         "properties": {
@@ -13723,6 +16229,137 @@
         ],
         "title": "CurrentSubscriptionResponse"
       },
+      "DashboardStatItem": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "value": {
+            "title": "Value"
+          },
+          "trend": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trend"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "DashboardStatItem"
+      },
+      "DashboardSummary": {
+        "properties": {
+          "stats": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardStatItem"
+            },
+            "type": "array",
+            "title": "Stats"
+          },
+          "recent_activity": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recent Activity"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stats"
+        ],
+        "title": "DashboardSummary"
+      },
+      "Dashboard__app__schemas__dashboard_schemas__ChangePasswordRequest": {
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "title": "Current Password"
+          },
+          "new_password": {
+            "type": "string",
+            "title": "New Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "title": "ChangePasswordRequest"
+      },
+      "Dashboard__app__schemas__dashboard_schemas__ResetPasswordRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "otp": {
+            "type": "string",
+            "title": "Otp"
+          },
+          "new_password": {
+            "type": "string",
+            "title": "New Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "otp",
+          "new_password"
+        ],
+        "title": "ResetPasswordRequest"
+      },
+      "Dashboard__app__schemas__dashboard_schemas__VerifyOTPRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "otp": {
+            "type": "string",
+            "title": "Otp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "otp"
+        ],
+        "title": "VerifyOTPRequest"
+      },
       "DocumentCreateRequest": {
         "properties": {
           "name": {
@@ -13846,6 +16483,29 @@
         },
         "type": "object",
         "title": "DocumentUpdateRequest"
+      },
+      "EarningsSummary": {
+        "properties": {
+          "today": {
+            "type": "number",
+            "title": "Today"
+          },
+          "this_month": {
+            "type": "number",
+            "title": "This Month"
+          },
+          "total_revenue": {
+            "type": "number",
+            "title": "Total Revenue"
+          }
+        },
+        "type": "object",
+        "required": [
+          "today",
+          "this_month",
+          "total_revenue"
+        ],
+        "title": "EarningsSummary"
       },
       "EmailDraftRequest": {
         "properties": {
@@ -14180,6 +16840,32 @@
         },
         "type": "object",
         "title": "GroupUpdateRequest"
+      },
+      "GrowthMetrics": {
+        "properties": {
+          "chart_data": {
+            "items": {
+              "$ref": "#/components/schemas/ChartDataPoint"
+            },
+            "type": "array",
+            "title": "Chart Data"
+          },
+          "total_count": {
+            "type": "integer",
+            "title": "Total Count"
+          },
+          "growth_rate": {
+            "type": "number",
+            "title": "Growth Rate"
+          }
+        },
+        "type": "object",
+        "required": [
+          "chart_data",
+          "total_count",
+          "growth_rate"
+        ],
+        "title": "GrowthMetrics"
       },
       "HTTPValidationError": {
         "properties": {
@@ -15895,6 +18581,45 @@
         "type": "object",
         "title": "MessageUpdateRequest"
       },
+      "NotificationItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "is_read": {
+            "type": "boolean",
+            "title": "Is Read"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "message",
+          "type",
+          "is_read",
+          "created_at"
+        ],
+        "title": "NotificationItem"
+      },
       "NotificationPreferences": {
         "properties": {
           "general_notification": {
@@ -16335,6 +19060,130 @@
         "type": "object",
         "title": "OutboundCallRequest"
       },
+      "PaginatedResponse_NotificationItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "PaginatedResponse[NotificationItem]"
+      },
+      "PaginatedResponse_TransactionListItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TransactionListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "PaginatedResponse[TransactionListItem]"
+      },
+      "PaginatedResponse_UserListItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UserListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "PaginatedResponse[UserListItem]"
+      },
+      "PaginatedResponse_UserReportListItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UserReportListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "PaginatedResponse[UserReportListItem]"
+      },
       "PermissionToggle": {
         "properties": {
           "key": {
@@ -16634,6 +19483,56 @@
         ],
         "title": "ProfileResponse"
       },
+      "ProfileUpdateRequest": {
+        "properties": {
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "phone_no": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone No"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          }
+        },
+        "type": "object",
+        "title": "ProfileUpdateRequest"
+      },
       "PushTokenRequest": {
         "properties": {
           "device_id": {
@@ -16788,40 +19687,6 @@
         ],
         "title": "ReplyMessageRequest"
       },
-      "ResetPasswordRequest": {
-        "properties": {
-          "email": {
-            "type": "string",
-            "format": "email",
-            "title": "Email"
-          },
-          "reset_token": {
-            "type": "string",
-            "minLength": 10,
-            "title": "Reset Token"
-          },
-          "new_password": {
-            "type": "string",
-            "maxLength": 128,
-            "minLength": 8,
-            "title": "New Password"
-          },
-          "confirm_password": {
-            "type": "string",
-            "maxLength": 128,
-            "minLength": 8,
-            "title": "Confirm Password"
-          }
-        },
-        "type": "object",
-        "required": [
-          "email",
-          "reset_token",
-          "new_password",
-          "confirm_password"
-        ],
-        "title": "ResetPasswordRequest"
-      },
       "SendOTPRequest": {
         "properties": {
           "email": {
@@ -16844,6 +19709,24 @@
           "email"
         ],
         "title": "SendOTPRequest"
+      },
+      "SettingsContent": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "content"
+        ],
+        "title": "SettingsContent"
       },
       "SettingsUpdateRequest": {
         "properties": {
@@ -17010,6 +19893,78 @@
           "access_token"
         ],
         "title": "SocialIntegrationUpsertRequest"
+      },
+      "SubscriptionPlan": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "price": {
+            "type": "number",
+            "title": "Price"
+          },
+          "interval": {
+            "type": "string",
+            "title": "Interval"
+          },
+          "features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Features"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "price",
+          "interval",
+          "features"
+        ],
+        "title": "SubscriptionPlan"
+      },
+      "SubscriptionPlanCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "price": {
+            "type": "number",
+            "title": "Price"
+          },
+          "interval": {
+            "type": "string",
+            "title": "Interval"
+          },
+          "features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Features"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "price",
+          "interval",
+          "features"
+        ],
+        "title": "SubscriptionPlanCreate"
       },
       "SubscriptionPlanResponse": {
         "properties": {
@@ -17377,6 +20332,94 @@
         ],
         "title": "TokenResponse"
       },
+      "TransactionDetails": {
+        "properties": {
+          "transaction_id": {
+            "type": "string",
+            "title": "Transaction Id"
+          },
+          "plan_name": {
+            "type": "string",
+            "title": "Plan Name"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Date"
+          },
+          "user_name": {
+            "type": "string",
+            "title": "User Name"
+          },
+          "account_number": {
+            "type": "string",
+            "title": "Account Number"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "amount": {
+            "type": "number",
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "transaction_id",
+          "plan_name",
+          "date",
+          "user_name",
+          "account_number",
+          "email",
+          "amount"
+        ],
+        "title": "TransactionDetails"
+      },
+      "TransactionListItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "trx_id": {
+            "type": "string",
+            "title": "Trx Id"
+          },
+          "plan_name": {
+            "type": "string",
+            "title": "Plan Name"
+          },
+          "price": {
+            "type": "number",
+            "title": "Price"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Date"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "completed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "full_name",
+          "trx_id",
+          "plan_name",
+          "price",
+          "date"
+        ],
+        "title": "TransactionListItem"
+      },
       "TypingStateRequest": {
         "properties": {
           "is_typing": {
@@ -17434,6 +20477,51 @@
         "type": "object",
         "title": "TypingStateRequest"
       },
+      "UserListItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "phone_no": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone No"
+          },
+          "joined_date": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Joined Date"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "active"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "full_name",
+          "email",
+          "joined_date"
+        ],
+        "title": "UserListItem"
+      },
       "UserReportCreateRequest": {
         "properties": {
           "category": {
@@ -17485,6 +20573,62 @@
           "description"
         ],
         "title": "UserReportCreateRequest"
+      },
+      "UserReportListItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "report_from": {
+            "type": "string",
+            "title": "Report From"
+          },
+          "report_from_image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report From Image"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "report_to": {
+            "type": "string",
+            "title": "Report To"
+          },
+          "report_to_image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report To Image"
+          },
+          "date_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Date Time"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "report_from",
+          "reason",
+          "report_to",
+          "date_time"
+        ],
+        "title": "UserReportListItem"
       },
       "UserResponse": {
         "properties": {
@@ -17588,6 +20732,13 @@
           "type": {
             "type": "string",
             "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
           }
         },
         "type": "object",
@@ -17597,39 +20748,6 @@
           "type"
         ],
         "title": "ValidationError"
-      },
-      "VerifyOTPRequest": {
-        "properties": {
-          "email": {
-            "type": "string",
-            "format": "email",
-            "title": "Email"
-          },
-          "code": {
-            "type": "string",
-            "maxLength": 8,
-            "minLength": 4,
-            "title": "Code",
-            "examples": [
-              "1234"
-            ]
-          },
-          "purpose": {
-            "type": "string",
-            "enum": [
-              "signup",
-              "forgot_password"
-            ],
-            "title": "Purpose",
-            "default": "signup"
-          }
-        },
-        "type": "object",
-        "required": [
-          "email",
-          "code"
-        ],
-        "title": "VerifyOTPRequest"
       },
       "VoiceCommandRequest": {
         "properties": {
@@ -17701,6 +20819,75 @@
         "type": "object",
         "title": "VoiceCommandRequest"
       },
+      "VoiceCommandResponse": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "listening",
+              "processing",
+              "responded"
+            ],
+            "title": "State"
+          },
+          "transcript": {
+            "type": "string",
+            "title": "Transcript"
+          },
+          "ai_response": {
+            "type": "string",
+            "title": "Ai Response"
+          },
+          "history_id": {
+            "type": "string",
+            "title": "History Id"
+          },
+          "workflow": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workflow"
+          },
+          "navigation": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Navigation"
+          },
+          "audio": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "transcript",
+          "ai_response",
+          "history_id"
+        ],
+        "title": "VoiceCommandResponse"
+      },
       "app__api__v1__endpoints__groups__GroupCreateRequest": {
         "properties": {
           "name": {
@@ -17722,6 +20909,108 @@
           "name"
         ],
         "title": "GroupCreateRequest"
+      },
+      "app__schemas__auth_schema__ResetPasswordRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "reset_token": {
+            "type": "string",
+            "minLength": 10,
+            "title": "Reset Token"
+          },
+          "new_password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "New Password"
+          },
+          "confirm_password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Confirm Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "reset_token",
+          "new_password",
+          "confirm_password"
+        ],
+        "title": "ResetPasswordRequest"
+      },
+      "app__schemas__auth_schema__VerifyOTPRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 8,
+            "minLength": 4,
+            "title": "Code",
+            "examples": [
+              "1234"
+            ]
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "signup",
+              "forgot_password"
+            ],
+            "title": "Purpose",
+            "default": "signup"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "code"
+        ],
+        "title": "VerifyOTPRequest"
+      },
+      "app__schemas__smartflow__ChangePasswordRequest": {
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Current Password"
+          },
+          "new_password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "New Password"
+          },
+          "confirm_password": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "minLength": 8
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirm Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "title": "ChangePasswordRequest"
       },
       "app__schemas__smartflow__GroupCreateRequest": {
         "properties": {

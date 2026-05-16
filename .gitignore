@@ -28,8 +28,10 @@ htmlcov/
 Thumbs.db
 
 .idea/
-.vscode/
 
 dist/
 build/
 *.egg-info/
+temp_auto_push.bat
+temp_interactive_push.bat
+.gitignore

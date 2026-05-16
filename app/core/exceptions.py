@@ -40,17 +40,21 @@ def _error_payload(message: str, code: str, details: Any = None, request_id: str
 
 
 def _json_safe_validation_errors(errors: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    normalized: list[dict[str, Any]] = []
-    for error in errors:
-        safe_error = dict(error)
-        context = safe_error.get("ctx")
-        if isinstance(context, dict):
-            safe_error["ctx"] = {
-                key: str(value) if isinstance(value, BaseException) else value
-                for key, value in context.items()
-            }
-        normalized.append(safe_error)
-    return normalized
+    def _make_safe(obj: Any) -> Any:
+        if isinstance(obj, list):
+            return [_make_safe(item) for item in obj]
+        if isinstance(obj, dict):
+            return {key: _make_safe(value) for key, value in obj.items()}
+        if isinstance(obj, bytes):
+            return f"<binary data: {len(obj)} bytes>"
+        if isinstance(obj, ObjectId):
+            return str(obj)
+        if isinstance(obj, BaseException):
+            return str(obj)
+        return obj
+
+    return [_make_safe(error) for error in errors]
+
 
 
 def register_exception_handlers(app: FastAPI) -> None:

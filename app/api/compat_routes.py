@@ -6,6 +6,7 @@ from fastapi import APIRouter, Body, Depends, Query
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.dependencies import get_current_user, get_mongo_database
+from app.core.exceptions import AppException
 from app.services.smartflow_service import SmartFlowService
 from app.utils.responses import success_response
 
@@ -116,12 +117,21 @@ async def connect_integration(
     current_user: dict = Depends(get_current_user),
     service: SmartFlowService = Depends(get_smartflow_service),
 ) -> dict:
+    platform = str(payload.get("platform") or "").strip()
+    if not platform:
+        raise AppException(
+            status_code=422,
+            code="VALIDATION_ERROR",
+            message="platform is required.",
+            details={"field": "platform"},
+        )
+
     if not payload.get("access_token"):
-        oauth = await service.start_integration_oauth(str(current_user["_id"]), payload["platform"])
+        oauth = await service.start_integration_oauth(str(current_user["_id"]), platform)
         return success_response(
             data={
                 "connected": False,
-                "platform": payload["platform"],
+                "platform": platform,
                 "auth_url": oauth["auth_url"],
                 "state": oauth["state"],
                 "expires_at": oauth["expires_at"],
@@ -131,7 +141,7 @@ async def connect_integration(
     data = await service.upsert_integration(
         str(current_user["_id"]),
         {
-            "platform": payload["platform"],
+            "platform": platform,
             "access_token": payload["access_token"],
             "refresh_token": payload.get("refresh_token"),
             "external_account_id": payload.get("external_account_id"),

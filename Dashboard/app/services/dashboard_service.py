@@ -1,13 +1,33 @@
 from __future__ import annotations
 
+from typing import Any
+
+from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.utils.helpers import utc_now
 from Dashboard.app.repositories.dashboard_repository import DashboardRepository
 from Dashboard.app.schemas.dashboard_schemas import (
+    AILog,
+    AIStats,
+    ChatConversation,
+    ChatMessage,
     DashboardSummary, 
     DashboardStatItem, 
     ChartDataPoint, 
-    GrowthMetrics
+    ChangePasswordRequest,
+    EarningsSummary,
+    GrowthMetrics,
+    PaginatedResponse,
+    ProfileUpdateRequest,
+    ResetPasswordRequest,
+    SettingsContent,
+    SubscriptionPlan,
+    SubscriptionPlanCreate,
+    TransactionDetails,
+    TransactionListItem,
+    UserListItem,
+    UserReportListItem,
+    VerifyOTPRequest,
 )
 
 
