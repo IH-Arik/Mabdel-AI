@@ -66,7 +66,6 @@ class InvoiceService:
             "sent_at": None,
             "viewed_at": None,
             "paid_at": None,
-            "share_token": None,
             "items": items,
             "timeline": [],
             "created_at": now,

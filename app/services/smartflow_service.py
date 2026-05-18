@@ -751,7 +751,13 @@ class SmartFlowService:
                 details={"intent": intent, "supported_intents": ["invoice", "bulk_message", "calendar", "lease", "agreement"]},
             )
         current_values = payload.get("current_values") or {}
-        prefill = self._build_workflow_prefill(intent, transcript, current_values)
+        prefill = await self._build_workflow_prefill(
+            intent=intent,
+            transcript=transcript,
+            current_values=current_values,
+            user_id=user_id,
+            workflow_output=workflow_state.output,
+        )
         missing_fields = self._workflow_missing_fields(intent, prefill)
         config = self._workflow_create_config(intent)
         await self.log_ai_command(
@@ -3106,7 +3112,7 @@ class SmartFlowService:
             "email": safe_user["email"],
             "is_verified": bool(safe_user.get("is_verified", False)),
             "email_verification_required": not bool(safe_user.get("is_verified", False)),
-            "avatar_url": safe_user.get("avatar_url"),
+            "avatar_url": self._normalize_media_url(safe_user.get("avatar_url")),
             "date_of_birth": safe_user.get("date_of_birth"),
             "country": safe_user.get("country"),
             "language_preference": safe_user.get("language_preference", "EN"),
@@ -3316,7 +3322,7 @@ class SmartFlowService:
             "email": safe.get("email") or user.get("email"),
             "phone_number": safe.get("phone_number"),
             "website": safe.get("website"),
-            "logo_url": safe.get("logo_url"),
+            "logo_url": self._normalize_media_url(safe.get("logo_url")),
             "office_address": {
                 "street_address": address.get("street_address"),
                 "suite": address.get("suite"),
@@ -3429,6 +3435,16 @@ class SmartFlowService:
         public_path = f"{settings.MEDIA_PUBLIC_PATH.rstrip('/')}/{folder}/{user_id}/{stored_name}"
         return f"{settings.PUBLIC_BACKEND_URL.rstrip('/')}{public_path}"
 
+    def _normalize_media_url(self, url: str | None) -> str | None:
+        if not url:
+            return None
+        media_prefix = settings.MEDIA_PUBLIC_PATH.rstrip('/') + "/"
+        if media_prefix in url:
+            parts = url.split(media_prefix, 1)
+            path = media_prefix + parts[1]
+            return f"{settings.PUBLIC_BACKEND_URL.rstrip('/')}/{path.lstrip('/')}"
+        return url
+
     @staticmethod
     def _image_extension(content_type: str, filename: str | None) -> str:
         extension_by_type = {
@@ -3511,6 +3527,7 @@ class SmartFlowService:
         safe["is_online"] = safe["presence"] == "online"
         safe["initials"] = self._contact_initials(safe.get("name"))
         safe["primary_detail"] = safe.get("email") or safe.get("phone")
+        safe["avatar_url"] = self._normalize_media_url(safe.get("avatar_url"))
         safe.setdefault("avatar_url", None)
         safe.setdefault("company", None)
         safe.setdefault("job_title", None)
@@ -3720,7 +3737,7 @@ class SmartFlowService:
             group = await self.db.groups.find_one({"conversation_id": safe["id"], "user_id": safe.get("user_id"), "is_active": {"$ne": False}})
             group_members = (group or {}).get("member_ids", safe.get("member_ids", []))
             safe["participant_preview"] = await self._group_participant_preview(safe.get("user_id", ""), group_members)
-            safe["avatar_url"] = (group or {}).get("avatar_url")
+            safe["avatar_url"] = self._normalize_media_url((group or {}).get("avatar_url"))
             safe["member_count"] = len(group_members)
             safe["contact_name"] = safe.get("title")
             if latest_sender_name and safe["last_message_preview"]:
@@ -3729,7 +3746,7 @@ class SmartFlowService:
             contact = await self._get_conversation_contact(safe.get("user_id", ""), safe)
             safe["contact_name"] = contact.get("name") if contact else safe.get("title")
             safe["title"] = safe.get("title") or (contact.get("name") if contact else None)
-            safe["avatar_url"] = contact.get("avatar_url") if contact else None
+            safe["avatar_url"] = self._normalize_media_url(contact.get("avatar_url")) if contact else None
             safe["presence"] = (contact or {}).get("presence", "offline")
             safe["presence_label"] = self._presence_label(safe["presence"])
             safe["participant_preview"] = []
@@ -3758,7 +3775,7 @@ class SmartFlowService:
         safe["reply_to_message_preview"] = self._message_preview(reply_doc)
         safe["forward_from_message_preview"] = self._message_preview(forward_doc)
         safe["sender_name"] = sender.get("name")
-        safe["sender_avatar_url"] = sender.get("avatar_url")
+        safe["sender_avatar_url"] = self._normalize_media_url(sender.get("avatar_url"))
         safe["sender_presence"] = sender.get("presence")
         safe["sender_is_self"] = sender.get("is_self", False)
         safe.pop("user_id", None)
@@ -4246,24 +4263,90 @@ class SmartFlowService:
         }
         return mapping.get(document_type or "", "document")
 
-    def _build_workflow_prefill(self, intent: str, transcript: str, current_values: dict) -> dict:
+    async def _build_workflow_prefill(
+        self,
+        intent: str,
+        transcript: str,
+        current_values: dict,
+        user_id: str | None = None,
+        workflow_output: dict | None = None,
+    ) -> dict:
         text = transcript.strip()
         lowered = text.lower()
         amount = self._extract_money_amount(text)
         emails = self._extract_emails(text)
-        person_name = self._extract_name_phrase(text)
+
+        # 1. Resolve recipient or client name
+        recipient_name = None
+        if workflow_output:
+            recipient_name = (
+                workflow_output.get("recipient")
+                or workflow_output.get("tenant_name")
+                or workflow_output.get("client_name")
+                or workflow_output.get("party_b")
+            )
+        if not recipient_name:
+            recipient_name = self._extract_name_phrase(text)
+
+        # 2. Look up name in DB contacts to resolve their full name & email
+        resolved_contact = None
+        if user_id and recipient_name:
+            clean_name = recipient_name.strip()
+            if clean_name:
+                resolved_contact = await self.db.contacts.find_one({
+                    "user_id": user_id,
+                    "$or": [
+                        {"name": {"$regex": rf"\b{re.escape(clean_name)}\b", "$options": "i"}},
+                        {"first_name": {"$regex": rf"^{re.escape(clean_name)}$", "$options": "i"}},
+                        {"last_name": {"$regex": rf"^{re.escape(clean_name)}$", "$options": "i"}},
+                    ]
+                })
+
+        if resolved_contact:
+            final_name = resolved_contact.get("name") or resolved_contact.get("first_name") or recipient_name
+            final_email = resolved_contact.get("email") or ""
+        else:
+            final_name = recipient_name or ""
+            final_email = emails[0] if emails else ""
+
         tomorrow = utc_now() + timedelta(days=1)
         prefill: dict = dict(current_values)
 
         if intent == "invoice":
-            prefill.setdefault("client_name", person_name or "")
-            if emails:
-                prefill.setdefault("client_email", emails[0])
+            if final_name:
+                prefill["client_name"] = final_name
+                prefill["client_email"] = final_email
+            elif emails:
+                prefill["client_email"] = emails[0]
+
             prefill.setdefault("currency", "USD")
             prefill.setdefault("tax_rate", 0)
             prefill.setdefault("notes", text)
-            if amount is not None:
-                prefill.setdefault("items", [{"description": self._extract_work_description(text) or "Service", "quantity": 1, "unit_price": amount}])
+            
+            # Cleanly build prefilled items with dynamic quantity and price
+            qty, unit_price = self._extract_qty_and_price(text, amount)
+            work_desc = self._extract_work_description(text, recipient_name) or "Service"
+            # If the description has the quantity pattern (e.g., "5 website designs"), strip the leading quantity number
+            if work_desc and re.match(r"^\d+\s+", work_desc):
+                work_desc = re.sub(r"^\d+\s+", "", work_desc).strip()
+
+            if amount is not None or work_desc != "Service":
+                prefill["items"] = [{
+                    "description": work_desc,
+                    "quantity": qty,
+                    "unit_price": unit_price,
+                }]
+
+            # Dynamic Due Date (prefill both due_date and payment_due_date)
+            extracted_due = None
+            if workflow_output:
+                extracted_due = workflow_output.get("due_date")
+            resolved_due_date = self._parse_due_date(extracted_due, text)
+            
+            if resolved_due_date:
+                prefill["due_date"] = resolved_due_date
+                prefill["payment_due_date"] = resolved_due_date
+
             return prefill
 
         if intent == "bulk_message":
@@ -4294,7 +4377,8 @@ class SmartFlowService:
 
         if intent == "lease":
             prefill.setdefault("prompt", text)
-            prefill.setdefault("tenant_name", person_name or "")
+            if final_name:
+                prefill["tenant_name"] = final_name
             prefill.setdefault("property_type", self._infer_property_type(lowered))
             prefill.setdefault("property_address", self._extract_address_hint(text) or "")
             prefill.setdefault("monthly_rent", amount)
@@ -4307,9 +4391,11 @@ class SmartFlowService:
             agreement_type = "nda" if "nda" in lowered else "service" if "service" in lowered else "contract"
             prefill.setdefault("prompt", text)
             prefill.setdefault("title", self._agreement_title_from_text(text, agreement_type))
-            prefill.setdefault("client_name", person_name or "")
-            if emails:
-                prefill.setdefault("client_email", emails[0])
+            if final_name:
+                prefill["client_name"] = final_name
+                prefill["client_email"] = final_email
+            elif emails:
+                prefill["client_email"] = emails[0]
             prefill.setdefault("agreement_type", agreement_type)
             prefill.setdefault("priority", "standard")
             return prefill
@@ -4346,6 +4432,50 @@ class SmartFlowService:
         return {"invoice": "Invoice", "bulk_message": "Bulk message", "calendar": "Calendar", "lease": "Lease", "agreement": "Agreement"}.get(intent, "AI")
 
     @staticmethod
+    def _extract_qty_and_price(text: str, default_amount: float | None = None) -> tuple[int, float]:
+        # Standard fallback: check for numbers preceding typical item words (allowing optional adjective)
+        qty_match = re.search(r"\b(\d+)\s+(?:[\w-]+\s+)?(?:items?|pcs?|copies|designs?|hours?|days?|services?)\b", text, flags=re.IGNORECASE)
+        qty = int(qty_match.group(1)) if qty_match else 1
+        
+        # Determine the price
+        price_match = re.search(r"(?:\$|usd\s*)\s*([0-9][0-9,]*(?:\.\d{1,2})?)", text, flags=re.IGNORECASE)
+        if not price_match:
+            price_match = re.search(r"([0-9][0-9,]*(?:\.\d{1,2})?)\s*(?:dollars?|usd|/month|per month)", text, flags=re.IGNORECASE)
+            
+        amount = float(price_match.group(1).replace(",", "")) if price_match else (default_amount or 0.0)
+        
+        # If "each" or "per" or "a piece" is mentioned, the amount is the unit price
+        if re.search(r"\b(?:each|per|/|a piece)\b", text, flags=re.IGNORECASE):
+            unit_price = amount
+        else:
+            # Otherwise, the amount is the total worth, so divide by quantity
+            unit_price = amount / qty if qty > 0 else amount
+            
+        return qty, unit_price
+
+    @staticmethod
+    def _parse_due_date(due_date_str: str | None, transcript: str) -> str | None:
+        now = utc_now()
+        
+        # Parse relative phrases from due_date_str or the raw transcript text
+        val = (due_date_str or "").strip().lower() or transcript.lower()
+        
+        if "tomorrow" in val:
+            return (now + timedelta(days=1)).date().isoformat()
+        if "next week" in val:
+            return (now + timedelta(days=7)).date().isoformat()
+        if "next month" in val:
+            return (now + timedelta(days=30)).date().isoformat()
+            
+        # Check standard date formats like 2026-06-15 or 06-15-2026
+        match_iso = re.search(r"(\d{4})[-/](\d{2})[-/](\d{2})", val)
+        if match_iso:
+            return f"{match_iso.group(1)}-{match_iso.group(2)}-{match_iso.group(3)}"
+            
+        # Default fallback to 7 days from now (standard payment terms)
+        return (now + timedelta(days=7)).date().isoformat()
+
+    @staticmethod
     def _extract_money_amount(text: str) -> float | None:
         match = re.search(r"(?:\$|usd\s*)\s*([0-9][0-9,]*(?:\.\d{1,2})?)", text, flags=re.IGNORECASE)
         if not match:
@@ -4375,8 +4505,15 @@ class SmartFlowService:
         return None
 
     @staticmethod
-    def _extract_work_description(text: str) -> str | None:
-        match = re.search(r"\bfor\s+(.+?)\s+(?:worth|for|\$|usd|at)\b", text, flags=re.IGNORECASE)
+    def _extract_work_description(text: str, recipient_name: str | None = None) -> str | None:
+        cleaned_text = text
+        if recipient_name:
+            # Strip "for Sarah", "to Sarah", etc. case-insensitively
+            cleaned_text = re.sub(rf"\b(?:for|to|with|client|tenant)\s+{re.escape(recipient_name)}\b", "", cleaned_text, flags=re.IGNORECASE)
+            
+        match = re.search(r"\bfor\s+(.+?)\s+(?:worth|for|\$|usd|at)\b", cleaned_text, flags=re.IGNORECASE)
+        if not match:
+            match = re.search(r"\bfor\s+([^$]+)$", cleaned_text, flags=re.IGNORECASE)
         return match.group(1).strip()[:120] if match else None
 
     @staticmethod

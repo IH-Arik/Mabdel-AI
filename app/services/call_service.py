@@ -122,13 +122,39 @@ class CallService:
                 message="Twilio could not create the outbound call.",
                 details=details,
             )
-        payload = response.json()
         return {
             "sid": payload.get("sid"),
             "status": payload.get("status") or "queued",
             "to": payload.get("to") or to_number,
             "from": payload.get("from") or request_from_number,
         }
+
+    async def send_sms(self, *, to_number: str, message: str) -> dict:
+        self._validate_twilio_outbound_config()
+        endpoint = f"https://api.twilio.com/2010-04-01/Accounts/{settings.TWILIO_ACCOUNT_SID}/Messages.json"
+        form_data = {
+            "To": to_number,
+            "From": settings.TWILIO_PHONE_NUMBER or "",
+            "Body": message,
+        }
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.post(
+                endpoint,
+                data=form_data,
+                auth=(settings.TWILIO_ACCOUNT_SID or "", settings.TWILIO_AUTH_TOKEN or ""),
+            )
+        if response.status_code >= 400:
+            try:
+                details = response.json()
+            except ValueError:
+                details = {"body": response.text}
+            raise AppException(
+                status_code=502,
+                code="TWILIO_SMS_SEND_FAILED",
+                message="Twilio could not send the SMS.",
+                details=details,
+            )
+        return response.json()
 
     async def update_call_twiml(self, call_sid: str, twiml: str) -> bool:
         self._validate_twilio_outbound_config()

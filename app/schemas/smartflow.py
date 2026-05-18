@@ -339,6 +339,13 @@ class AIChatRequest(BaseModel):
     response_mode: AIResponseMode = "text"
     voice_id: str | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def accept_legacy_message_fields(cls, data: Any) -> Any:
+        if isinstance(data, dict) and not data.get("content"):
+            data = {**data, "content": data.get("transcript") or data.get("prompt") or ""}
+        return data
+
 
 class AIVoiceOption(BaseModel):
     id: str

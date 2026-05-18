@@ -4,6 +4,7 @@ import base64
 
 from fastapi import APIRouter, Depends, File, Form, Header, Query, Request, Response, UploadFile, WebSocket, WebSocketDisconnect, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from pydantic import ValidationError
 
 from app.core.realtime import conversation_realtime_hub, inbox_realtime_hub
 from app.core.security import decode_token
@@ -372,10 +373,20 @@ async def set_typing_state(
 
 @router.post("/ai/chat")
 async def ai_chat(
-    payload: AIChatRequest,
+    request: Request,
     current_user: dict = Depends(get_current_user),
     service: SmartFlowService = Depends(get_smartflow_service),
 ) -> dict:
+    try:
+        body = await request.json()
+        payload = AIChatRequest.model_validate(body)
+    except ValidationError as exc:
+        raise AppException(
+            status_code=422,
+            code="VALIDATION_ERROR",
+            message="Validation error.",
+            details=exc.errors(),
+        ) from exc
     data = await service.chat_with_ai(
         str(current_user["_id"]),
         payload.content,

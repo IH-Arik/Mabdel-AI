@@ -87,99 +87,139 @@ The backend is configured via environment variables (typically in a `.env` file)
 
 ---
 
-## SmartFlow API (Protected)
+#### SmartFlow Core
 
-The primary domain for client applications. All routes require a valid JWT.
+Managed via the `/api/v1/smartflow` prefix.
 
-### Contacts & Conversations
-- `GET|POST /api/v1/smartflow/contacts`: Manage contacts.
-- `GET /api/v1/smartflow/contacts/{id}`: Detailed contact view.
-- `GET|POST /api/v1/smartflow/conversations`: Chat list and metadata.
-- `POST /api/v1/smartflow/conversations/{id}/archive`: Archive a thread.
-- `POST /api/v1/smartflow/conversations/{id}/mark-read`: Bulk read action.
-- `GET /api/v1/smartflow/messages/unread-summary`: Get unread counts per platform.
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/ai/chat` | Main AI chat interface. Supports text-based workflow triggers. |
+| `POST` | `/ai/voice-chat-upload` | Process audio commands and convert them to AI chat interactions. |
+| `POST` | `/ai/workflow-prefill` | Extract form data from transcripts for automated form completion. |
+| `GET` | `/ai/history` | Retrieve user interaction history with the AI. |
+| `POST` | `/ai/history/{id}/replay` | Replay a previous AI interaction. |
 
-### AI & Workflows
-- `POST /api/v1/smartflow/ai/chat`: Interactive AI assistant.
-- `POST /api/v1/smartflow/ai/voice-chat`: Process audio commands.
-- `POST /api/v1/smartflow/ai/workflow-prefill`: Extract form data from transcript.
-- `GET /api/v1/smartflow/ai/history`: View past AI interactions.
-- `POST /api/v1/smartflow/ai/history/{id}/replay`: Re-run an AI command.
+#### Contacts & Groups
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/contacts` | List contacts (supports `search`, `page`). |
+| `POST` | `/contacts` | Create a new contact. |
+| `GET` | `/contacts/{id}` | Get detailed contact info. |
+| `PATCH` | `/contacts/{id}` | Update contact details. |
+| `DELETE` | `/contacts/{id}` | Remove a contact. |
+| `POST` | `/contacts/{id}/avatar` | Upload contact profile picture (Multipart). |
+| `GET` | `/groups` | List all contact groups. |
+| `POST` | `/groups` | Create a new group. |
+| `PATCH` | `/groups/{id}` | Update group name/settings. |
+| `POST` | `/groups/{id}/members` | Add contacts to a group. |
+| `DELETE` | `/groups/{id}/members/{m_id}` | Remove a member from a group. |
+
+---
 
 ### Invoices & Documents
-- `GET|POST /api/v1/invoices`: Invoice management.
-- `GET /api/v1/invoices/{id}/pdf`: Download/Stream invoice PDF.
-- `POST /api/v1/invoices/{id}/remind`: Send payment reminder.
-- `GET|POST /api/v1/smartflow/documents`: File storage and management.
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/v1/invoices` | List invoices with status/search filters. |
+| `POST` | `/api/v1/invoices` | Create a new invoice. |
+| `GET` | `/api/v1/invoices/{id}` | Get invoice details. |
+| `PATCH` | `/api/v1/invoices/{id}` | Update draft invoice. |
+| `DELETE` | `/api/v1/invoices/{id}` | Delete an invoice. |
+| `POST` | `/api/v1/invoices/{id}/send` | Send invoice via email/messaging. |
+| `POST` | `/api/v1/invoices/{id}/status` | Update invoice status (Paid, Cancelled). |
+| `GET` | `/api/v1/invoices/{id}/pdf` | Download invoice as PDF. |
+| `GET` | `/api/v1/smartflow/documents` | List all uploaded documents. |
+| `POST` | `/api/v1/smartflow/documents` | Upload and AI-index a new document. |
+
+---
 
 ### Leases & Agreements
-- `GET /api/v1/smartflow/leases`: List rental agreements.
-- `POST /api/v1/smartflow/leases/generate`: AI-powered lease generation.
-- `POST /api/v1/smartflow/leases/{id}/send-signature`: Initiate e-signature.
-- `GET /api/v1/smartflow/agreements`: Legal contract management.
 
-### Calls & Voice
-- `GET /api/v1/smartflow/calls`: Call history logs.
-- `POST /api/v1/smartflow/calls/outbound`: Trigger callback via Twilio.
-- `GET /api/v1/smartflow/calls/{id}/transcript`: AI-generated call transcript.
-
----
-
-## Dashboard API (Admin)
-
-Restricted to users with `admin` or `super_admin` roles.
-
-### Organization Management
-- `GET /api/v1/dashboard/admin/summary`: High-level metrics.
-- `GET /api/v1/dashboard/admin/users`: User list and moderation.
-- `PATCH /api/v1/dashboard/admin/users/{id}/status`: Block/Unblock users.
-- `GET /api/v1/dashboard/admin/earnings`: Revenue and transaction history.
-
-### Monitoring & Support
-- `GET /api/v1/dashboard/admin/ai/stats`: AI performance monitoring.
-- `GET /api/v1/dashboard/admin/ai/logs`: Detailed AI interaction traces.
-- `GET /api/v1/dashboard/admin/chats`: View and respond to user support chats.
-- `GET /api/v1/dashboard/admin/reports`: Manage user-submitted reports/complaints.
-
-### Super Admin (Global)
-- `GET /api/v1/dashboard/super/platform-summary`: Multi-org global metrics.
-- `GET /api/v1/dashboard/super/global-growth`: Platform-wide growth trends.
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/v1/smartflow/agreements` | List all legal agreements. |
+| `POST` | `/api/v1/smartflow/agreements/generate` | Generate a legal agreement draft using AI. |
+| `POST` | `/api/v1/smartflow/agreements/review` | AI-driven legal review of a contract. |
+| `POST` | `/api/v1/smartflow/agreements/{id}/sign` | Digitally sign a generated agreement. |
+| `GET` | `/api/v1/smartflow/agreements/{id}/pdf` | Download signed agreement PDF. |
+| `POST` | `/api/v1/smartflow/leases/renew` | Extend or renew an existing lease. |
 
 ---
 
-## WebSocket APIs
+### Calendar & Scheduling
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/v1/calendar/schedule` | Schedule a new meeting and trigger notifications (Push, Email, SMS). |
+
+---
+
+### Communication & Integrations
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/v1/smartflow/calls` | List call logs and AI summaries. |
+| `POST` | `/api/v1/smartflow/calls/outbound` | Initiate an AI-driven outbound call. |
+| `GET` | `/api/v1/smartflow/calls/{id}/transcript` | Get full AI call transcript. |
+| `GET` | `/api/v1/smartflow/integrations/catalog` | View available platform integrations. |
+| `POST` | `/api/v1/smartflow/integrations` | Connect a new integration (Telegram, WhatsApp). |
+
+---
+
+### Dashboard API
+
+Hosted on Port `8001` with prefix `/api/v1/dashboard`.
+
+#### Admin Endpoints (`/admin`)
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/summary` | Aggregate metrics for the organization. |
+| `GET` | `/users` | Paginated list of organization users. |
+| `PATCH` | `/users/{id}/status` | Block or unblock a user. |
+| `GET` | `/earnings` | Financial summary and transaction history. |
+| `GET` | `/ai/stats` | AI usage performance and cost monitoring. |
+| `GET` | `/chats` | Support inbox management. |
+
+#### Super Admin Endpoints (`/super-admin`)
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/platform-summary` | Global platform-wide metrics. |
+| `GET` | `/global-growth` | Platform-wide growth analytics. |
+| `POST` | `/create-admin` | Provision a new organization administrator. |
+
+---
+
+### WebSocket APIs
 
 WebSockets provide real-time updates for chat, notifications, and media streaming.
 
 - `WS /api/v1/smartflow/ws/inbox?token=<token>`: Global inbox updates.
-- `WS /api/v1/smartflow/ws/conversations/{id}?token=<token>`: Specific thread updates.
+- `WS /api/v1/smartflow/ws/conversations/{id}?token=<token>`: Thread-specific updates.
 - `WS /api/v1/calls/stream/{call_id}`: Bi-directional Twilio media stream.
 
 ---
 
-## Frontend Integration Maps
+### AI Command Redirects (SmartFlow)
 
-### Contacts Screen
-- List: `GET /smartflow/contacts` (supports `search`, `page`).
-- Add: `POST /smartflow/contacts`.
-- Edit: `PATCH /smartflow/contacts/{id}`.
-- Avatar: `POST /smartflow/contacts/{id}/avatar` (Multipart).
-
-### Notifications Screen
-- List: `GET /smartflow/notifications` (supports `unread_only`).
-- Mark Read: `PATCH /smartflow/notifications/{id}/read`.
-- Mark All Read: `POST /smartflow/notifications/mark-all-read`.
-- Push Token: `POST /smartflow/devices/push-token`.
-
-### AI Command Redirects
 When using `POST /api/v1/smartflow/ai/chat`, the response may include a `navigation` object for auto-routing:
 
-| Intent | Screen | Path |
-| --- | --- | --- |
+| Intent | Target Screen | Path |
+| :--- | :--- | :--- |
 | `invoice` | `CreateInvoice` | `/invoices/create` |
+| `lease` | `CreateLease` | `/leases/create` |
+| `agreement` | `CreateAgreement` | `/agreements/create` |
 | `bulk_message` | `CreateBulkMessage` | `/bulk-messages/create` |
 | `calendar` | `CreateCalendarEvent` | `/calendar/events/create` |
-| `lease` | `CreateLease` | `/leases/create` |
+
+---
+
+### Support & Feedback
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/v1/smartflow/support/tickets` | Submit a support ticket. |
+| `POST` | `/api/v1/smartflow/reports` | Submit a bug or feature report. |
+| `GET` | `/api/v1/smartflow/notifications` | Fetch unread alerts and messages. |
 
 ---
 
@@ -189,4 +229,4 @@ When using `POST /api/v1/smartflow/ai/chat`, the response may include a `navigat
 - **File Uploads**: Use `multipart/form-data` for avatars, logos, and voice chat uploads.
 - **Rate Limiting**: Auth routes have a default limit (20 req / 60 sec).
 - **Twilio**: Publicly accessible URL is required for TwiML webhooks and media streams.
-- **OpenAI**: Fallback logic is implemented; however, `OPENAI_API_KEY` is required for production-grade AI features.
+- **OpenAI**: `OPENAI_API_KEY` is required for production-grade AI features.

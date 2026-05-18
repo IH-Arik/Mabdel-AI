@@ -316,6 +316,26 @@ def test_ai_chat_returns_navigation_for_business_workflow_screens(client, mock_d
         assert data["navigation"]["params"]["prefill_prompt"] == content
 
 
+def test_ai_chat_accepts_transcript_payload_for_invoice_flow(client, mock_db):
+    headers = _auth_headers(client, mock_db, email="ai-transcript-chat@example.com")
+
+    response = client.post(
+        "/api/v1/smartflow/ai/chat",
+        headers=headers,
+        json={
+            "transcript": "Create invoice for Jamil 250",
+            "prompt": "Extract invoice data from this transcript and return JSON.",
+            "response_mode": "text",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["workflow"]["intent"] == "invoice"
+    assert data["navigation"]["screen"] == "CreateInvoice"
+    assert data["navigation"]["params"]["prefill_prompt"] == "Create invoice for Jamil 250"
+
+
 def test_ai_workflow_prefill_supports_voice_form_creation_screens(client, mock_db):
     headers = _auth_headers(client, mock_db, email="ai-prefill@example.com")
     cases = [
@@ -361,6 +381,68 @@ def test_ai_workflow_prefill_supports_voice_form_creation_screens(client, mock_d
         assert data["create_endpoint"] == endpoint
         assert data["prefill"][field] == expected
         assert data["next_action"] in {"create", "review_form"}
+
+
+def test_ai_workflow_prefill_resolves_contact_and_overwrites_stale_email(client, mock_db):
+    headers = _auth_headers(client, mock_db, email="resolve-contacts@example.com")
+    
+    # 1. Create a contact in the database
+    _create_contact(client, headers, name="Jamil Miah", email="jamil@example.com")
+    
+    # 2. Trigger AI prefill for invoice, passing stale email default in current_values
+    request_body = {
+        "workflow_intent": "invoice",
+        "transcript": "Create invoice for Jamil of $250",
+        "current_values": {
+            "client_name": "",
+            "client_email": "nathan.roberts@example.com"
+        }
+    }
+    
+    response = client.post("/api/v1/smartflow/ai/workflow-prefill", headers=headers, json=request_body)
+    assert response.status_code == 200
+    
+    data = response.json()["data"]
+    assert data["prefill"]["client_name"] == "Jamil Miah"
+    assert data["prefill"]["client_email"] == "jamil@example.com"
+    assert data["prefill"]["items"][0]["unit_price"] == 250
+
+
+def test_ai_workflow_prefill_dynamic_quantity_and_date(client, mock_db):
+    headers = _auth_headers(client, mock_db, email="dynamic-prefill@example.com")
+    
+    # Test case 1: Explicit quantity, description, unit price and due tomorrow
+    request_body_1 = {
+        "workflow_intent": "invoice",
+        "transcript": "Create invoice for Sarah for 5 website designs for $250 each due tomorrow",
+        "workflow_output": {
+            "due_date": "tomorrow"
+        }
+    }
+    response_1 = client.post("/api/v1/smartflow/ai/workflow-prefill", headers=headers, json=request_body_1)
+    assert response_1.status_code == 200
+    data_1 = response_1.json()["data"]["prefill"]
+    assert data_1["items"][0]["quantity"] == 5
+    assert data_1["items"][0]["unit_price"] == 250.0
+    assert data_1["items"][0]["description"] == "website designs"
+    
+    from datetime import timedelta
+    from app.utils.helpers import utc_now
+    tomorrow_str = (utc_now() + timedelta(days=1)).date().isoformat()
+    assert data_1["due_date"] == tomorrow_str
+    assert data_1["payment_due_date"] == tomorrow_str
+
+    # Test case 2: Total amount divided by quantity (no 'each' specified)
+    request_body_2 = {
+        "workflow_intent": "invoice",
+        "transcript": "Create invoice for Jamil for 3 consultation hours worth $300",
+    }
+    response_2 = client.post("/api/v1/smartflow/ai/workflow-prefill", headers=headers, json=request_body_2)
+    assert response_2.status_code == 200
+    data_2 = response_2.json()["data"]["prefill"]
+    assert data_2["items"][0]["quantity"] == 3
+    assert data_2["items"][0]["unit_price"] == 100.0
+    assert data_2["items"][0]["description"] == "consultation hours"
 
 
 def test_conversation_unread_filter_search_and_mark_read(client, mock_db):

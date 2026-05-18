@@ -41,17 +41,19 @@ def _error_payload(message: str, code: str, details: Any = None, request_id: str
 
 def _json_safe_validation_errors(errors: list[dict[str, Any]]) -> list[dict[str, Any]]:
     def _make_safe(obj: Any) -> Any:
-        if isinstance(obj, list):
+        if isinstance(obj, (list, tuple, set)):
             return [_make_safe(item) for item in obj]
         if isinstance(obj, dict):
-            return {key: _make_safe(value) for key, value in obj.items()}
+            return {str(key): _make_safe(value) for key, value in obj.items()}
         if isinstance(obj, bytes):
             return f"<binary data: {len(obj)} bytes>"
-        if isinstance(obj, ObjectId):
+        if obj.__class__.__name__ == "ObjectId":
             return str(obj)
         if isinstance(obj, BaseException):
             return str(obj)
-        return obj
+        if isinstance(obj, (str, int, float, bool, type(None))):
+            return obj
+        return str(obj)
 
     return [_make_safe(error) for error in errors]
 
