@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import re
 import secrets
+import json
 from datetime import date, datetime, timedelta
 from io import BytesIO
 from math import ceil
@@ -4275,10 +4277,16 @@ class SmartFlowService:
         lowered = text.lower()
         amount = self._extract_money_amount(text)
         emails = self._extract_emails(text)
+        ai_prefill = await self._extract_workflow_prefill_with_ai(intent, text, current_values)
+        ai_recipient_name = (
+            ai_prefill.pop("_recipient_name", None)
+            or ai_prefill.get("client_name")
+            or ai_prefill.get("tenant_name")
+        )
 
         # 1. Resolve recipient or client name
-        recipient_name = None
-        if workflow_output:
+        recipient_name = ai_recipient_name
+        if not recipient_name and workflow_output:
             recipient_name = (
                 workflow_output.get("recipient")
                 or workflow_output.get("tenant_name")
@@ -4311,11 +4319,12 @@ class SmartFlowService:
 
         tomorrow = utc_now() + timedelta(days=1)
         prefill: dict = dict(current_values)
+        prefill.update(ai_prefill)
 
         if intent == "invoice":
             if final_name:
                 prefill["client_name"] = final_name
-                prefill["client_email"] = final_email
+                prefill["client_email"] = final_email or prefill.get("client_email", "")
             elif emails:
                 prefill["client_email"] = emails[0]
 
@@ -4330,7 +4339,7 @@ class SmartFlowService:
             if work_desc and re.match(r"^\d+\s+", work_desc):
                 work_desc = re.sub(r"^\d+\s+", "", work_desc).strip()
 
-            if amount is not None or work_desc != "Service":
+            if amount is not None or (not prefill.get("items") and work_desc != "Service"):
                 prefill["items"] = [{
                     "description": work_desc,
                     "quantity": qty,
@@ -4341,6 +4350,8 @@ class SmartFlowService:
             extracted_due = None
             if workflow_output:
                 extracted_due = workflow_output.get("due_date")
+            if not extracted_due:
+                extracted_due = prefill.get("due_date") or prefill.get("payment_due_date")
             resolved_due_date = self._parse_due_date(extracted_due, text)
             
             if resolved_due_date:
@@ -4393,7 +4404,7 @@ class SmartFlowService:
             prefill.setdefault("title", self._agreement_title_from_text(text, agreement_type))
             if final_name:
                 prefill["client_name"] = final_name
-                prefill["client_email"] = final_email
+                prefill["client_email"] = final_email or prefill.get("client_email", "")
             elif emails:
                 prefill["client_email"] = emails[0]
             prefill.setdefault("agreement_type", agreement_type)
@@ -4401,6 +4412,226 @@ class SmartFlowService:
             return prefill
 
         return prefill
+
+    async def _extract_workflow_prefill_with_ai(self, intent: str, transcript: str, current_values: dict) -> dict:
+        if not settings.OPENAI_API_KEY:
+            return {}
+
+        prompt = self._workflow_prefill_ai_prompt(intent, transcript, current_values)
+
+        def call_openai() -> str | None:
+            try:
+                from openai import OpenAI
+            except ImportError:
+                return None
+
+            try:
+                client = OpenAI(api_key=settings.OPENAI_API_KEY)
+                response = client.chat.completions.create(
+                    model=settings.OPENAI_MODEL,
+                    temperature=0,
+                    response_format={"type": "json_object"},
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": (
+                                "You extract form-prefill JSON for a business workflow. "
+                                "Return only valid JSON. Do not invent people, emails, dates, or prices "
+                                "that the user did not state or clearly imply."
+                            ),
+                        },
+                        {"role": "user", "content": prompt},
+                    ],
+                )
+                return response.choices[0].message.content
+            except Exception:
+                return None
+
+        content = await asyncio.to_thread(call_openai)
+        if not content:
+            return {}
+
+        try:
+            parsed = json.loads(self._strip_json_code_fence(content))
+        except (TypeError, ValueError):
+            return {}
+
+        raw_prefill = parsed.get("prefill") if isinstance(parsed, dict) else None
+        if not isinstance(raw_prefill, dict):
+            raw_prefill = parsed if isinstance(parsed, dict) else {}
+        sanitized = self._sanitize_ai_prefill(intent, raw_prefill)
+
+        recipient_name = parsed.get("recipient_name") if isinstance(parsed, dict) else None
+        if isinstance(recipient_name, str) and recipient_name.strip():
+            sanitized["_recipient_name"] = recipient_name.strip()[:120]
+
+        return sanitized
+
+    @staticmethod
+    def _workflow_prefill_ai_prompt(intent: str, transcript: str, current_values: dict) -> str:
+        field_guides = {
+            "invoice": {
+                "fields": {
+                    "client_name": "person/company being billed",
+                    "client_email": "email only if explicitly provided",
+                    "currency": "3-letter code, default omitted unless stated",
+                    "notes": "short invoice note from the request",
+                    "due_date": "YYYY-MM-DD when stated or clearly relative to current_date",
+                    "payment_due_date": "same as due_date when applicable",
+                    "items": [{"description": "work/product", "quantity": 1, "unit_price": 0}],
+                }
+            },
+            "bulk_message": {
+                "fields": {
+                    "channel": "email, sms, whatsapp, or in_app",
+                    "recipient_emails": ["explicit email addresses"],
+                    "subject": "email subject when useful",
+                    "content": "message body the user wants sent",
+                    "send_now": "true unless user asks to schedule",
+                    "timezone": "timezone if stated",
+                }
+            },
+            "calendar": {
+                "fields": {
+                    "title": "meeting/event title",
+                    "description": "details",
+                    "starts_at": "ISO datetime when stated or clearly relative to current_date",
+                    "ends_at": "ISO datetime, infer duration only when user implies it",
+                    "meeting_mode": "online or offline",
+                    "location": "physical location if stated",
+                    "meeting_link": "online link if stated",
+                    "timezone": "timezone if stated",
+                    "reminder_minutes": "integer reminder if stated",
+                }
+            },
+            "lease": {
+                "fields": {
+                    "prompt": "lease generation request",
+                    "tenant_name": "tenant",
+                    "tenant_email": "email only if explicitly provided",
+                    "property_type": "apartment, house, office_space, shop, warehouse, or land",
+                    "property_address": "property address",
+                    "monthly_rent": "monthly rent as number",
+                    "security_deposit": "deposit as number",
+                    "currency": "3-letter code",
+                    "rent_due_day": "1-31",
+                    "start_date": "YYYY-MM-DD",
+                    "end_date": "YYYY-MM-DD",
+                    "custom_terms": "extra terms",
+                }
+            },
+            "agreement": {
+                "fields": {
+                    "prompt": "agreement generation request",
+                    "title": "agreement title",
+                    "client_name": "client/other party",
+                    "client_email": "email only if explicitly provided",
+                    "client_phone": "phone if explicitly provided",
+                    "agreement_type": "contract, service, nda, partnership, employment, vendor, or other",
+                    "priority": "low, standard, high, or urgent",
+                    "start_date": "YYYY-MM-DD",
+                    "end_date": "YYYY-MM-DD",
+                }
+            },
+        }
+        payload = {
+            "intent": intent,
+            "current_date": utc_now().date().isoformat(),
+            "transcript": transcript,
+            "current_values": current_values,
+            "allowed_output": {
+                "recipient_name": "best person/company name for contact lookup, if present",
+                "prefill": field_guides.get(intent, {}).get("fields", {}),
+            },
+        }
+        return json.dumps(payload, ensure_ascii=True, default=str)
+
+    @staticmethod
+    def _strip_json_code_fence(content: str) -> str:
+        cleaned = content.strip()
+        if cleaned.startswith("```"):
+            cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(r"\s*```$", "", cleaned)
+        return cleaned.strip()
+
+    @classmethod
+    def _sanitize_ai_prefill(cls, intent: str, raw: dict) -> dict:
+        allowed = {
+            "invoice": {"client_name", "client_email", "currency", "tax_rate", "notes", "items", "due_date", "payment_due_date"},
+            "bulk_message": {"channel", "recipient_emails", "contact_ids", "group_ids", "subject", "content", "send_now", "timezone", "scheduled_at"},
+            "calendar": {"title", "description", "starts_at", "ends_at", "meeting_mode", "contact_ids", "timezone", "reminder_minutes", "location", "meeting_link"},
+            "lease": {
+                "prompt", "title", "tenant_name", "tenant_email", "tenant_phone", "property_type", "property_address",
+                "monthly_rent", "security_deposit", "currency", "rent_due_day", "start_date", "end_date", "custom_terms",
+                "signature_fields",
+            },
+            "agreement": {
+                "prompt", "title", "client_name", "client_email", "client_phone", "agreement_type", "priority",
+                "start_date", "end_date",
+            },
+        }.get(intent, set())
+        clean: dict = {}
+        for key, value in raw.items():
+            if key not in allowed or value in (None, "", []):
+                continue
+            clean[key] = cls._sanitize_ai_value(key, value)
+        if intent == "invoice" and isinstance(raw.get("items"), list):
+            items = []
+            for item in raw["items"][:20]:
+                if not isinstance(item, dict):
+                    continue
+                description = str(item.get("description") or "Service").strip()[:120]
+                quantity = cls._coerce_int(item.get("quantity"), default=1, minimum=1)
+                unit_price = cls._coerce_float(item.get("unit_price"), default=0.0, minimum=0.0)
+                items.append({"description": description or "Service", "quantity": quantity, "unit_price": unit_price})
+            if items:
+                clean["items"] = items
+        return clean
+
+    @staticmethod
+    def _sanitize_ai_value(key: str, value):
+        if key in {"recipient_emails", "contact_ids", "group_ids"}:
+            return [str(item).strip() for item in value if str(item).strip()] if isinstance(value, list) else []
+        if key in {"send_now"}:
+            return bool(value)
+        if key in {"tax_rate", "monthly_rent", "security_deposit", "reminder_minutes"}:
+            return SmartFlowService._coerce_float(value, default=0.0, minimum=0.0)
+        if key in {"rent_due_day"}:
+            return SmartFlowService._coerce_int(value, default=1, minimum=1, maximum=31)
+        if key == "currency":
+            return str(value).strip().upper()[:3]
+        if key == "signature_fields" and isinstance(value, dict):
+            return {
+                "tenant_signature": bool(value.get("tenant_signature", True)),
+                "landlord_signature": bool(value.get("landlord_signature", True)),
+            }
+        if key == "items":
+            return value
+        return str(value).strip()[:3000]
+
+    @staticmethod
+    def _coerce_float(value, default: float = 0.0, minimum: float | None = None, maximum: float | None = None) -> float:
+        try:
+            number = float(str(value).replace(",", ""))
+        except (TypeError, ValueError):
+            number = default
+        if minimum is not None:
+            number = max(minimum, number)
+        if maximum is not None:
+            number = min(maximum, number)
+        return number
+
+    @staticmethod
+    def _coerce_int(value, default: int = 0, minimum: int | None = None, maximum: int | None = None) -> int:
+        try:
+            number = int(float(str(value).replace(",", "")))
+        except (TypeError, ValueError):
+            number = default
+        if minimum is not None:
+            number = max(minimum, number)
+        if maximum is not None:
+            number = min(maximum, number)
+        return number
 
     @staticmethod
     def _workflow_missing_fields(intent: str, prefill: dict) -> list[str]:

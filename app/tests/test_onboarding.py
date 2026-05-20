@@ -28,6 +28,21 @@ def test_onboarding_progress_create_and_fetch(client_sql) -> None:
     assert fetch_response.json()["data"]["current_step"] == 1
 
 
+def test_onboarding_progress_allows_multiple_device_only_records(client_sql) -> None:
+    first_response = client_sql.post(
+        "/api/v1/onboarding/progress",
+        json={"device_id": "device_progress_one", "current_step": 1},
+    )
+    assert first_response.status_code == 200
+
+    second_response = client_sql.post(
+        "/api/v1/onboarding/skip",
+        json={"device_id": "device_progress_two", "current_step": 1},
+    )
+    assert second_response.status_code == 200
+    assert second_response.json()["data"]["is_skipped"] is True
+
+
 def test_onboarding_skip_complete_reset_flow(client_sql) -> None:
     skip_response = client_sql.post(
         "/api/v1/onboarding/skip",

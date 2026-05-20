@@ -57,8 +57,6 @@ class OnboardingRepository:
         now = datetime.now(UTC)
         progress = {
             "id": await self._next_progress_id(),
-            "user_id": user_id,
-            "device_id": device_id,
             "current_step": current_step,
             "is_completed": False,
             "is_skipped": False,
@@ -68,6 +66,10 @@ class OnboardingRepository:
             "created_at": now,
             "updated_at": now,
         }
+        if user_id is not None:
+            progress["user_id"] = user_id
+        if device_id is not None:
+            progress["device_id"] = device_id
         return await self.save_progress(progress)
 
     async def ensure_default_slides(self) -> None:

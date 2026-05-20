@@ -281,83 +281,328 @@ class MabdelAIService:
         }
         return messages.get(intent, "Sure, I found the right workflow.")
 
+    navigation_registry = [
+        {
+            "intent": "invoice",
+            "action": "create",
+            "entity": "invoice",
+            "screen": "CreateInvoice",
+            "path": "/invoices/create",
+            "route_name": "invoice_create",
+            "label": "Create Invoice",
+            "aliases": ["invoice", "bill"],
+            "action_keywords": ["create", "new", "make", "generate", "draft", "add", "prepare"]
+        },
+        {
+            "intent": "invoice",
+            "action": "list",
+            "entity": "invoice",
+            "screen": "InvoiceList",
+            "path": "/invoices",
+            "route_name": "invoice_list",
+            "label": "Invoices",
+            "aliases": ["invoice", "bill", "invoices"],
+            "action_keywords": ["show", "view", "list", "open", "go to", "display", "check", "see"]
+        },
+        {
+            "intent": "lease",
+            "action": "create",
+            "entity": "lease",
+            "screen": "CreateLease",
+            "path": "/leases/create",
+            "route_name": "lease_create",
+            "label": "Create Lease",
+            "aliases": ["lease", "rental agreement", "leases"],
+            "action_keywords": ["create", "new", "make", "generate", "draft", "add", "prepare"]
+        },
+        {
+            "intent": "lease",
+            "action": "list",
+            "entity": "lease",
+            "screen": "LeaseList",
+            "path": "/leases",
+            "route_name": "lease_list",
+            "label": "Leases",
+            "aliases": ["lease", "rental agreement", "leases"],
+            "action_keywords": ["show", "view", "list", "open", "go to", "display", "check", "see"]
+        },
+        {
+            "intent": "agreement",
+            "action": "create",
+            "entity": "agreement",
+            "screen": "CreateAgreement",
+            "path": "/agreements/create",
+            "route_name": "agreement_create",
+            "label": "Create Agreement",
+            "aliases": ["agreement", "contract", "service agreement", "agreements"],
+            "action_keywords": ["create", "new", "make", "generate", "draft", "add", "prepare"]
+        },
+        {
+            "intent": "agreement",
+            "action": "list",
+            "entity": "agreement",
+            "screen": "AgreementList",
+            "path": "/agreements",
+            "route_name": "agreement_list",
+            "label": "Agreements",
+            "aliases": ["agreement", "contract", "service agreement", "agreements"],
+            "action_keywords": ["show", "view", "list", "open", "go to", "display", "check", "see"]
+        },
+        {
+            "intent": "email",
+            "action": "create",
+            "entity": "email",
+            "screen": "EmailDraft",
+            "path": "/email/draft",
+            "route_name": "email_draft",
+            "label": "Draft Email",
+            "aliases": ["email", "mail"],
+            "action_keywords": ["draft", "write", "create", "new", "send", "compose"]
+        },
+        {
+            "intent": "bulk_message",
+            "action": "create",
+            "entity": "bulk_message",
+            "screen": "CreateBulkMessage",
+            "path": "/bulk-messages/create",
+            "route_name": "bulk_message_create",
+            "label": "Create Bulk Email",
+            "aliases": ["bulk email", "bulk message", "broadcast", "bulk mail"],
+            "action_keywords": ["create", "new", "send", "draft", "compose", "write", "bulk"]
+        },
+        {
+            "intent": "calendar",
+            "action": "create",
+            "entity": "event",
+            "screen": "CreateCalendarEvent",
+            "path": "/calendar/events/create",
+            "route_name": "calendar_create",
+            "label": "Schedule Meeting",
+            "aliases": ["meeting", "event", "calendar", "schedule", "appointment"],
+            "action_keywords": ["schedule", "create", "new", "book", "make", "add"]
+        },
+        {
+            "intent": "calendar",
+            "action": "list",
+            "entity": "event",
+            "screen": "Calendar",
+            "path": "/calendar/events",
+            "route_name": "calendar_view",
+            "label": "Calendar",
+            "aliases": ["meeting", "event", "calendar", "schedule", "appointment"],
+            "action_keywords": ["show", "view", "list", "open", "go to", "display", "check", "see"]
+        },
+        {
+            "intent": "group",
+            "action": "create",
+            "entity": "group",
+            "screen": "CreateGroup",
+            "path": "/groups/create",
+            "route_name": "group_create",
+            "label": "Create Group",
+            "aliases": ["group", "community", "groups"],
+            "action_keywords": ["create", "new", "make", "start"]
+        },
+        {
+            "intent": "group",
+            "action": "list",
+            "entity": "group",
+            "screen": "GroupsHome",
+            "path": "/groups",
+            "route_name": "group_home",
+            "label": "Groups",
+            "aliases": ["group", "community", "groups"],
+            "action_keywords": ["show", "view", "list", "open", "go to", "display", "home"]
+        },
+        {
+            "intent": "chat",
+            "action": "list",
+            "entity": "chat",
+            "screen": "AllChat",
+            "path": "/chat",
+            "route_name": "chat_home",
+            "label": "All Chats",
+            "aliases": ["chat", "chats", "message", "messages", "inbox"],
+            "action_keywords": ["show", "view", "list", "open", "go to", "display", "check", "see"]
+        },
+        {
+            "intent": "chat",
+            "action": "message",
+            "entity": "chat",
+            "screen": "SingleChat",
+            "path": "/chat/single",
+            "route_name": "chat_single",
+            "label": "Chat",
+            "aliases": ["chat", "message", "conversation", "client", "clients"],
+            "action_keywords": ["message", "chat with", "text", "send message to", "contact"]
+        },
+        {
+            "intent": "contacts",
+            "action": "list",
+            "entity": "contact",
+            "screen": "Contacts",
+            "path": "/contacts",
+            "route_name": "contacts_list",
+            "label": "Contacts",
+            "aliases": ["contact", "contacts", "clients", "client", "tenant", "tenants"],
+            "action_keywords": ["show", "view", "list", "open", "go to", "display", "check", "see"]
+        },
+        {
+            "intent": "contacts",
+            "action": "create",
+            "entity": "contact",
+            "screen": "AddContact",
+            "path": "/contacts/create",
+            "route_name": "contacts_create",
+            "label": "Add Contact",
+            "aliases": ["contact", "contacts", "client", "tenant"],
+            "action_keywords": ["create", "new", "add", "save", "make"]
+        },
+        {
+            "intent": "profile",
+            "action": "view",
+            "entity": "profile",
+            "screen": "ProfileHome",
+            "path": "/profile",
+            "route_name": "profile_home",
+            "label": "Profile",
+            "aliases": ["profile", "my profile", "account", "settings"],
+            "action_keywords": ["show", "view", "open", "go to", "display", "check"]
+        },
+        {
+            "intent": "profile",
+            "action": "business",
+            "entity": "profile",
+            "screen": "ProfileBusiness",
+            "path": "/profile/business",
+            "route_name": "profile_business",
+            "label": "Business Profile",
+            "aliases": ["business profile", "business settings", "company profile"],
+            "action_keywords": ["show", "view", "open", "go to", "display", "check", "manage"]
+        },
+        {
+            "intent": "profile",
+            "action": "update",
+            "entity": "profile",
+            "screen": "ProfileEdit",
+            "path": "/profile/edit",
+            "route_name": "profile_edit",
+            "label": "Edit Profile",
+            "aliases": ["profile", "my profile", "account", "settings"],
+            "action_keywords": ["edit", "update", "change", "modify"]
+        },
+        {
+            "intent": "call",
+            "action": "list",
+            "entity": "call",
+            "screen": "CallHistory",
+            "path": "/calls",
+            "route_name": "call_history",
+            "label": "Open Calls",
+            "aliases": ["call", "calls", "phone"],
+            "action_keywords": ["show", "view", "list", "open", "go to", "display", "check"]
+        }
+    ]
+
     @staticmethod
     def _navigation_for_intent(intent: str, user_text: str) -> dict:
-        routes = {
-            "invoice": {
-                "action": "open_screen",
-                "route_name": "invoice_create",
-                "screen": "CreateInvoice",
-                "path": "/invoices/create",
-                "label": "Create Invoice",
-            },
-            "email": {
-                "action": "open_screen",
-                "route_name": "email_draft",
-                "screen": "EmailDraft",
-                "path": "/email/draft",
-                "label": "Draft Email",
-            },
-            "bulk_message": {
-                "action": "open_screen",
-                "route_name": "bulk_message_create",
-                "screen": "CreateBulkMessage",
-                "path": "/bulk-messages/create",
-                "label": "Create Bulk Email",
-            },
-            "calendar": {
-                "action": "open_screen",
-                "route_name": "calendar_create",
-                "screen": "CreateCalendarEvent",
-                "path": "/calendar/events/create",
-                "label": "Schedule Meeting",
-            },
-            "lease": {
-                "action": "open_screen",
-                "route_name": "lease_create",
-                "screen": "CreateLease",
-                "path": "/leases/create",
-                "label": "Create Lease",
-            },
-            "agreement": {
-                "action": "open_screen",
-                "route_name": "agreement_create",
-                "screen": "CreateAgreement",
-                "path": "/agreements/create",
-                "label": "Create Agreement",
-            },
-            "group": {
-                "action": "open_screen",
-                "route_name": "group_create",
-                "screen": "CreateGroup",
-                "path": "/groups/create",
-                "label": "Create Group",
-            },
-            "call": {
-                "action": "open_screen",
-                "route_name": "call_history",
-                "screen": "CallHistory",
-                "path": "/calls",
-                "label": "Open Calls",
-            },
-        }
-        route = routes.get(intent)
-        if not route:
+        normalized = user_text.lower().strip()
+        best_match = None
+        best_score = -1.0
+
+        for entry in MabdelAIService.navigation_registry:
+            score = 0.0
+
+            # 1. Intent Match
+            if entry["intent"] == intent:
+                score += 1.5
+
+            # 2. Alias Match
+            alias_matched = False
+            for alias in entry["aliases"]:
+                if alias in normalized:
+                    alias_matched = True
+                    if " " in alias:
+                        score += 3.0
+                    else:
+                        score += 1.5
+                    break
+
+            # 3. Action Keyword Match
+            action_kws_in_prompt = [kw for kw in entry["action_keywords"] if kw in normalized]
+            score += 1.0 * len(action_kws_in_prompt)
+
+            # 4. Strict Action Context matching
+            is_create = any(x in normalized for x in ["create", "new", "make", "generate", "draft", "add", "prepare", "schedule", "book", "start"])
+            is_list = any(x in normalized for x in ["show", "view", "list", "open", "go to", "display", "check", "see", "history", "all "])
+            is_update = any(x in normalized for x in ["edit", "update", "change", "modify"])
+            is_business = "business" in normalized or "company" in normalized
+
+            if entry["action"] == "create" and is_create:
+                score += 2.0
+            elif entry["action"] == "create" and is_list:
+                score -= 2.0
+
+            if entry["action"] == "list" and is_list:
+                score += 2.0
+            elif entry["action"] == "list" and is_create:
+                score -= 2.0
+
+            if entry["action"] == "update" and is_update:
+                score += 2.0
+
+            if entry["action"] == "business" and is_business:
+                score += 2.5
+            elif entry["action"] == "business" and not is_business:
+                score -= 1.5
+
+            if score > best_score:
+                best_score = score
+                best_match = entry
+
+        # Calculate final confidence
+        if best_match and best_score >= 1.5:
+            # High confidence if intent matches or strong alias+action matches
+            if best_score >= 4.0:
+                confidence = 0.95
+            else:
+                confidence = 0.75
+            should_redirect = confidence >= 0.70
+            reason = f"Matched intent '{best_match['intent']}' and action '{best_match['action']}' based on prompt keywords."
+
             return {
-                "should_redirect": False,
-                "action": "none",
-                "route_name": None,
-                "screen": None,
-                "path": None,
-                "label": None,
-                "params": {},
+                "should_redirect": should_redirect,
+                "intent": best_match["intent"],
+                "action": best_match["action"],
+                "entity": best_match["entity"],
+                "screen": best_match["screen"],
+                "path": best_match["path"],
+                "route_name": best_match["route_name"],
+                "label": best_match["label"],
+                "confidence": confidence,
+                "reason": reason,
+                "params": {
+                    "source": "mabdel_ai",
+                    "prefill_prompt": user_text.strip(),
+                    "intent": best_match["intent"],
+                },
             }
-        return {
-            "should_redirect": True,
-            **route,
-            "params": {
-                "source": "mabdel_ai",
-                "prefill_prompt": user_text.strip(),
-                "intent": intent,
-            },
-        }
+        else:
+            return {
+                "should_redirect": True,
+                "intent": "chatbot",
+                "action": "chat",
+                "entity": "chatbot",
+                "screen": "MicConversation",
+                "path": "/ai/chat",
+                "route_name": "chatbot",
+                "label": "AI Chatbot",
+                "confidence": 0.30,
+                "reason": "No strong navigation match found. Redirecting to AI chatbot for conversational response.",
+                "params": {
+                    "source": "mabdel_ai",
+                    "prefill_prompt": user_text.strip(),
+                    "chatbot_fallback": True,
+                },
+            }
+

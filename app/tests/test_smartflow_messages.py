@@ -445,6 +445,36 @@ def test_ai_workflow_prefill_dynamic_quantity_and_date(client, mock_db):
     assert data_2["items"][0]["description"] == "consultation hours"
 
 
+def test_ai_workflow_prefill_merges_ai_extraction_for_natural_language(client, mock_db, monkeypatch):
+    from app.services.smartflow_service import SmartFlowService
+
+    headers = _auth_headers(client, mock_db, email="smart-ai-prefill@example.com")
+
+    async def fake_ai_extract(self, intent, transcript, current_values):
+        assert intent == "invoice"
+        assert "bill sarah" in transcript.lower()
+        return {
+            "_recipient_name": "Sarah Ahmed",
+            "client_name": "Sarah Ahmed",
+            "notes": "Homepage copy package",
+            "items": [{"description": "homepage copy", "quantity": 1, "unit_price": 500.0}],
+        }
+
+    monkeypatch.setattr(SmartFlowService, "_extract_workflow_prefill_with_ai", fake_ai_extract)
+
+    response = client.post(
+        "/api/v1/smartflow/ai/workflow-prefill",
+        headers=headers,
+        json={"workflow_intent": "invoice", "transcript": "please bill sarah five hundred for homepage copy"},
+    )
+
+    assert response.status_code == 200
+    prefill = response.json()["data"]["prefill"]
+    assert prefill["client_name"] == "Sarah Ahmed"
+    assert prefill["notes"] == "Homepage copy package"
+    assert prefill["items"] == [{"description": "homepage copy", "quantity": 1, "unit_price": 500.0}]
+
+
 def test_conversation_unread_filter_search_and_mark_read(client, mock_db):
     headers = _auth_headers(client, mock_db, email="inbox-filters@example.com")
     maria_contact_id = _create_contact(client, headers, name="Maria Garcia", email="maria@example.com")
@@ -822,3 +852,73 @@ def test_leave_and_delete_group_endpoints_behave_for_group_lifecycle(client, moc
     delete_response = client.delete(f"/api/v1/smartflow/groups/{delete_group_id}", headers=headers)
     assert delete_response.status_code == 200
     assert delete_response.json()["data"]["deleted"] is True
+
+
+def test_smart_navigation_scoring_and_context_matching(client, mock_db):
+    headers = _auth_headers(client, mock_db, email="smart-nav-test@example.com")
+
+    # Case 1: List vs Create matching for Invoices
+    # "show my invoices" should match InvoiceList (list)
+    response_list = client.post(
+        "/api/v1/smartflow/ai/chat",
+        headers=headers,
+        json={"content": "show my invoices", "response_mode": "text"},
+    )
+    assert response_list.status_code == 200
+    nav_list = response_list.json()["data"]["navigation"]
+    assert nav_list["should_redirect"] is True
+    assert nav_list["screen"] == "InvoiceList"
+    assert nav_list["path"] == "/invoices"
+    assert nav_list["confidence"] >= 0.70
+
+    # "create invoice for Alex" should match CreateInvoice (create)
+    response_create = client.post(
+        "/api/v1/smartflow/ai/chat",
+        headers=headers,
+        json={"content": "create invoice for Alex", "response_mode": "text"},
+    )
+    assert response_create.status_code == 200
+    nav_create = response_create.json()["data"]["navigation"]
+    assert nav_create["should_redirect"] is True
+    assert nav_create["screen"] == "CreateInvoice"
+    assert nav_create["path"] == "/invoices/create"
+
+    # Case 2: Profile routes
+    # "open business settings profile" should match ProfileBusiness
+    response_biz = client.post(
+        "/api/v1/smartflow/ai/chat",
+        headers=headers,
+        json={"content": "open business settings profile", "response_mode": "text"},
+    )
+    assert response_biz.status_code == 200
+    nav_biz = response_biz.json()["data"]["navigation"]
+    assert nav_biz["should_redirect"] is True
+    assert nav_biz["screen"] == "ProfileBusiness"
+    assert nav_biz["path"] == "/profile/business"
+
+    # "change my account settings profile" should match ProfileEdit
+    response_edit = client.post(
+        "/api/v1/smartflow/ai/chat",
+        headers=headers,
+        json={"content": "change my account settings profile", "response_mode": "text"},
+    )
+    assert response_edit.status_code == 200
+    nav_edit = response_edit.json()["data"]["navigation"]
+    assert nav_edit["should_redirect"] is True
+    assert nav_edit["screen"] == "ProfileEdit"
+    assert nav_edit["path"] == "/profile/edit"
+
+    # Case 3: Ambiguous or generic queries redirect to AI chatbot
+    response_ambiguous = client.post(
+        "/api/v1/smartflow/ai/chat",
+        headers=headers,
+        json={"content": "what is the meaning of life?", "response_mode": "text"},
+    )
+    assert response_ambiguous.status_code == 200
+    nav_ambiguous = response_ambiguous.json()["data"]["navigation"]
+    assert nav_ambiguous["should_redirect"] is True
+    assert nav_ambiguous["screen"] == "MicConversation"
+    assert nav_ambiguous["path"] == "/ai/chat"
+    assert nav_ambiguous["confidence"] < 0.70
+    assert nav_ambiguous["params"]["chatbot_fallback"] is True
+
