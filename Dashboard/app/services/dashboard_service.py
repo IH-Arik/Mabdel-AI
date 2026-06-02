@@ -5,8 +5,8 @@ from typing import Any
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.utils.helpers import utc_now
-from Dashboard.app.repositories.dashboard_repository import DashboardRepository
-from Dashboard.app.schemas.dashboard_schemas import (
+from app.repositories.dashboard_repository import DashboardRepository
+from app.schemas.dashboard_schemas import (
     AILog,
     AIStats,
     ChatConversation,
@@ -29,6 +29,14 @@ from Dashboard.app.schemas.dashboard_schemas import (
     UserReportListItem,
     VerifyOTPRequest,
 )
+
+
+def _object_id(value: str, code: str = "INVALID_ID") -> ObjectId:
+    from app.core.exceptions import AppException
+
+    if not ObjectId.is_valid(value):
+        raise AppException(status_code=400, code=code, message="Invalid MongoDB object id.")
+    return ObjectId(value)
 
 
 class DashboardService:
@@ -140,7 +148,7 @@ class DashboardService:
         return PaginatedResponse(items=user_items, total=total, limit=limit, offset=offset)
 
     async def get_user_by_id(self, user_id: str) -> UserListItem:
-        item = await self.repository.db.users.find_one({"_id": ObjectId(user_id)})
+        item = await self.repository.db.users.find_one({"_id": _object_id(user_id, "INVALID_USER_ID")})
         if not item:
             from app.core.exceptions import AppException
             raise AppException(status_code=404, code="USER_NOT_FOUND", message="User not found")
@@ -282,26 +290,24 @@ class DashboardService:
         from app.core.exceptions import AppException
         from bson import ObjectId
         
-        user = await self.repository.db.users.find_one({"_id": ObjectId(user_id)})
-        if not user or not verify_password(data.current_password, user.get("hashed_password", "")):
+        user = await self.repository.db.users.find_one({"_id": _object_id(user_id, "INVALID_USER_ID")})
+        stored_password = user.get("hashed_password") or user.get("password_hash") if user else ""
+        if not user or not verify_password(data.current_password, stored_password):
             raise AppException(status_code=400, code="INVALID_PASSWORD", message="Current password is incorrect")
         
         new_hashed = hash_password(data.new_password)
         return await self.repository.update_user_password(user_id, new_hashed)
 
     async def forgot_password(self, email: str):
-        import random
         from app.core.exceptions import AppException
+        from app.utils.helpers import generate_otp
         
         user = await self.repository.db.users.find_one({"email": email})
         if not user:
             raise AppException(status_code=404, code="USER_NOT_FOUND", message="Email not registered")
         
-        otp = f"{random.randint(1000, 9999)}"
+        otp = generate_otp()
         await self.repository.save_otp(email, otp)
-        # In production, call your email service here:
-        # await self.email_service.send_otp(email, otp)
-        print(f"DEBUG: OTP for {email} is {otp}") 
 
     async def verify_otp(self, data: VerifyOTPRequest) -> bool:
         return await self.repository.verify_otp(data.email, data.otp)
@@ -313,7 +319,9 @@ class DashboardService:
         if not await self.repository.verify_otp(data.email, data.otp):
             raise AppException(status_code=400, code="INVALID_OTP", message="Invalid or expired OTP")
         
-        user = await self.repository.db.users.find_one({"email": email})
+        user = await self.repository.db.users.find_one({"email": data.email})
+        if not user:
+            raise AppException(status_code=404, code="USER_NOT_FOUND", message="Email not registered")
         hashed = hash_password(data.new_password)
         return await self.repository.update_user_password(str(user["_id"]), hashed)
 
@@ -355,3 +363,82 @@ class DashboardService:
             "timestamp": utc_now()
         }
         await self.repository.save_message(msg)
+
+    async def apply_report_action(self, report_id: str, action: str, note: str | None = None) -> bool:
+        from bson import ObjectId
+        from app.core.exceptions import AppException
+        
+        report = await self.repository.db.user_reports.find_one({"_id": _object_id(report_id, "INVALID_REPORT_ID")})
+        if not report:
+            raise AppException(status_code=404, code="REPORT_NOT_FOUND", message="Report not found")
+        
+        update_fields = {
+            "status": "resolved",
+            "action_taken": action,
+            "action_note": note,
+            "updated_at": utc_now()
+        }
+        await self.repository.db.user_reports.update_one(
+            {"_id": _object_id(report_id, "INVALID_REPORT_ID")},
+            {"$set": update_fields}
+        )
+        
+        reported_user_id = report.get("reported_user_id") or report.get("reportedUserId") or report.get("report_to_id")
+        if reported_user_id:
+            status = "blocked" if action == "disable_user" else "active"
+            if action in ["disable_user", "recover_user"]:
+                await self.repository.db.users.update_one(
+                    {"_id": _object_id(str(reported_user_id), "INVALID_USER_ID")},
+                    {"$set": {"status": status, "updated_at": utc_now()}}
+                )
+        return True
+
+    async def resolve_report(self, report_id: str) -> bool:
+        result = await self.repository.db.user_reports.update_one(
+            {"_id": _object_id(report_id, "INVALID_REPORT_ID")},
+            {"$set": {"status": "resolved", "updated_at": utc_now()}}
+        )
+        return result.modified_count > 0
+
+    async def dismiss_report(self, report_id: str) -> bool:
+        result = await self.repository.db.user_reports.update_one(
+            {"_id": _object_id(report_id, "INVALID_REPORT_ID")},
+            {"$set": {"status": "resolved", "updated_at": utc_now()}}
+        )
+        return result.modified_count > 0
+
+    async def add_user_note(self, user_id: str, note: str) -> bool:
+        result = await self.repository.db.users.update_one(
+            {"_id": _object_id(user_id, "INVALID_USER_ID")},
+            {"$push": {"notes": {"note": note, "created_at": utc_now()}}}
+        )
+        return result.modified_count > 0
+
+    async def get_subscription_fees(self) -> dict[str, float]:
+        doc = await self.repository.db.settings.find_one({"type": "subscription_fees"})
+        if not doc:
+            return {
+                "subscriptionMonthlyPrice": 29.0,
+                "subscriptionYearlyPrice": 299.0
+            }
+        return {
+            "subscriptionMonthlyPrice": doc.get("subscriptionMonthlyPrice", 29.0),
+            "subscriptionYearlyPrice": doc.get("subscriptionYearlyPrice", 299.0)
+        }
+
+    async def update_subscription_fees(self, monthly: float, yearly: float) -> dict[str, float]:
+        await self.repository.db.settings.update_one(
+            {"type": "subscription_fees"},
+            {
+                "$set": {
+                    "subscriptionMonthlyPrice": monthly,
+                    "subscriptionYearlyPrice": yearly,
+                    "updated_at": utc_now()
+                }
+            },
+            upsert=True
+        )
+        return {
+            "subscriptionMonthlyPrice": monthly,
+            "subscriptionYearlyPrice": yearly
+        }

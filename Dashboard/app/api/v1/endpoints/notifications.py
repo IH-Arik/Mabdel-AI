@@ -5,7 +5,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.dependencies import get_mongo_database, get_current_user
 from app.repositories.notification_repository import NotificationRepository
-from Dashboard.app.schemas.dashboard_schemas import (
+from app.schemas.dashboard_schemas import (
     BaseResponse, 
     PaginatedResponse, 
     NotificationItem
@@ -44,6 +44,7 @@ async def list_notifications(
     return BaseResponse(data=data)
 
 
+@router.patch("/{notification_id}/read", response_model=BaseResponse[bool])
 @router.post("/{notification_id}/read", response_model=BaseResponse[bool])
 async def mark_notification_as_read(
     notification_id: str,
@@ -55,6 +56,19 @@ async def mark_notification_as_read(
     """
     success = await repo.mark_as_read(notification_id, str(current_user["_id"]))
     return BaseResponse(data=success, message="Notification marked as read" if success else "Notification not found or already read")
+
+
+@router.patch("/read-all", response_model=BaseResponse[bool])
+@router.post("/read-all", response_model=BaseResponse[bool])
+async def mark_all_notifications_as_read(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_mongo_database),
+):
+    result = await db.notifications.update_many(
+        {"user_id": str(current_user["_id"]), "is_read": False},
+        {"$set": {"is_read": True}},
+    )
+    return BaseResponse(data=True, message=f"{result.modified_count} notifications marked as read")
 
 
 @router.get("/unread-count", response_model=BaseResponse[int])

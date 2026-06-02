@@ -5,6 +5,14 @@ from typing import Any
 
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from app.core.exceptions import AppException
+from app.utils.helpers import utc_now
+
+
+def _object_id(value: str, code: str = "INVALID_ID") -> ObjectId:
+    if not ObjectId.is_valid(value):
+        raise AppException(status_code=400, code=code, message="Invalid MongoDB object id.")
+    return ObjectId(value)
 
 
 class DashboardRepository:
@@ -111,8 +119,8 @@ class DashboardRepository:
 
     async def update_user_status(self, user_id: str, status: str) -> bool:
         result = await self.db.users.update_one(
-            {"_id": ObjectId(user_id)},
-            {"$set": {"status": status}}
+            {"_id": _object_id(user_id, "INVALID_USER_ID")},
+            {"$set": {"status": status, "updated_at": utc_now()}}
         )
         return result.modified_count > 0
 
@@ -270,18 +278,16 @@ class DashboardRepository:
         return items, total
 
     async def update_user_profile(self, user_id: str, data: dict[str, Any]) -> bool:
-        from bson import ObjectId
         result = await self.db.users.update_one(
-            {"_id": ObjectId(user_id)},
+            {"_id": _object_id(user_id, "INVALID_USER_ID")},
             {"$set": {**data, "updated_at": utc_now()}}
         )
         return result.modified_count > 0
 
     async def update_user_password(self, user_id: str, hashed_password: str) -> bool:
-        from bson import ObjectId
         result = await self.db.users.update_one(
-            {"_id": ObjectId(user_id)},
-            {"$set": {"hashed_password": hashed_password, "updated_at": utc_now()}}
+            {"_id": _object_id(user_id, "INVALID_USER_ID")},
+            {"$set": {"hashed_password": hashed_password, "password_hash": hashed_password, "updated_at": utc_now()}}
         )
         return result.modified_count > 0
 

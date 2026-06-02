@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.dependencies import get_mongo_database, require_role
-from Dashboard.app.dependencies import get_dashboard_service
-from Dashboard.app.schemas.dashboard_schemas import DashboardSummary, GrowthMetrics, BaseResponse
-from Dashboard.app.services.dashboard_service import DashboardService
+from app.dependencies import get_dashboard_service
+from app.schemas.dashboard_schemas import DashboardSummary, GrowthMetrics, BaseResponse
+from app.services.dashboard_service import DashboardService
 
 router = APIRouter()
 

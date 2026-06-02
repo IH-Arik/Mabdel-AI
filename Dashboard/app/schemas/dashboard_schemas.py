@@ -35,8 +35,10 @@ class UserListItem(BaseModel):
     full_name: str
     email: str
     phone_no: str | None = None
-    joined_date: datetime
+    joined_date: datetime | None = None
+    created_at: datetime | None = None
     status: str = "active"  # active, blocked, pending
+    role: str | None = None
 
 
 class PaginatedResponse(BaseModel, Generic[T]):
@@ -189,3 +191,22 @@ class ChatMessage(BaseModel):
     image_url: str | None = None
     timestamp: datetime
     is_me: bool # To differentiate between admin and user bubbles
+
+
+class UserReportActionRequest(BaseModel):
+    action: str  # warn, disable_user, recover_user
+    note: str | None = None
+
+
+class UserNoteRequest(BaseModel):
+    note: str
+
+
+class SubscriptionFeesUpdateRequest(BaseModel):
+    subscriptionMonthlyPrice: float
+    subscriptionYearlyPrice: float
+
+
+class SubscriptionFeesResponse(BaseModel):
+    subscriptionMonthlyPrice: float
+    subscriptionYearlyPrice: float

@@ -9,6 +9,7 @@ from app.api.v1.endpoints.email import router as email_router
 from app.api.v1.endpoints.groups import router as groups_router
 from app.api.v1.endpoints.invoices import router as invoices_router
 from app.api.v1.endpoints.permissions import router as permissions_router
+from app.api.v1.endpoints.shop import router as shop_router
 from app.api.v1.endpoints.smartflow import router as smartflow_router
 from app.api.v1.app_config_routes import router as app_config_router
 from app.api.v1.auth_routes import router as auth_router
@@ -28,5 +29,6 @@ api_router.include_router(calendar_router)
 api_router.include_router(groups_router)
 api_router.include_router(calls_router)
 api_router.include_router(permissions_router)
+api_router.include_router(shop_router)
 api_router.include_router(smartflow_router)
 api_router.include_router(dashboard_router, prefix="/dashboard")

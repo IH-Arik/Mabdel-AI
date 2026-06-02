@@ -7,10 +7,8 @@ import json
 from datetime import date, datetime, timedelta
 from io import BytesIO
 from math import ceil
-from pathlib import Path
 from urllib.parse import quote_plus
 from urllib.parse import urlencode
-from uuid import uuid4
 
 from bson import ObjectId
 import httpx
@@ -25,6 +23,7 @@ from app.core.security import hash_password, verify_password
 from app.services.call_service import CallService
 from app.services.email_service import EmailService
 from app.services.mabdel_ai_service import MabdelAIService
+from app.services.media_storage_service import MediaStorageService
 from app.services.push_notification_service import PushNotificationService
 from app.services.social_provider_adapters import get_social_provider_adapter
 from app.utils.helpers import serialize_mongo_document, serialize_mongo_documents, utc_now
@@ -91,6 +90,7 @@ class SmartFlowService:
         self.db = db
         self.ai_service = MabdelAIService()
         self.call_service = CallService()
+        self.media_storage = MediaStorageService()
 
     async def get_home_dashboard(self, user: dict) -> dict:
         user_id = str(user["_id"])
@@ -3411,54 +3411,18 @@ class SmartFlowService:
         filename: str | None,
         label: str,
     ) -> str:
-        media_type = (content_type or "").lower().split(";")[0].strip()
-        if media_type not in settings.MEDIA_ALLOWED_IMAGE_TYPES:
-            raise AppException(
-                status_code=415,
-                code="UNSUPPORTED_IMAGE_TYPE",
-                message=f"{label} must be a JPG, PNG, WebP, or GIF image.",
-                details={"content_type": media_type or None},
-            )
-        if not file_bytes:
-            raise AppException(status_code=400, code="IMAGE_FILE_EMPTY", message=f"{label} file is empty.")
-        if len(file_bytes) > settings.MEDIA_MAX_UPLOAD_BYTES:
-            raise AppException(
-                status_code=413,
-                code="IMAGE_FILE_TOO_LARGE",
-                message=f"{label} file is too large.",
-                details={"max_bytes": settings.MEDIA_MAX_UPLOAD_BYTES},
-            )
-
-        extension = self._image_extension(media_type, filename)
-        directory = Path(settings.MEDIA_ROOT) / folder / user_id
-        directory.mkdir(parents=True, exist_ok=True)
-        stored_name = f"{uuid4().hex}{extension}"
-        (directory / stored_name).write_bytes(file_bytes)
-        public_path = f"{settings.MEDIA_PUBLIC_PATH.rstrip('/')}/{folder}/{user_id}/{stored_name}"
-        return f"{settings.PUBLIC_BACKEND_URL.rstrip('/')}{public_path}"
+        stored = self.media_storage.store_image(
+            owner_id=user_id,
+            folder=folder,
+            file_bytes=file_bytes,
+            content_type=content_type,
+            filename=filename,
+            label=label,
+        )
+        return stored.url
 
     def _normalize_media_url(self, url: str | None) -> str | None:
-        if not url:
-            return None
-        media_prefix = settings.MEDIA_PUBLIC_PATH.rstrip('/') + "/"
-        if media_prefix in url:
-            parts = url.split(media_prefix, 1)
-            path = media_prefix + parts[1]
-            return f"{settings.PUBLIC_BACKEND_URL.rstrip('/')}/{path.lstrip('/')}"
-        return url
-
-    @staticmethod
-    def _image_extension(content_type: str, filename: str | None) -> str:
-        extension_by_type = {
-            "image/jpeg": ".jpg",
-            "image/png": ".png",
-            "image/webp": ".webp",
-            "image/gif": ".gif",
-        }
-        if content_type in extension_by_type:
-            return extension_by_type[content_type]
-        suffix = Path(filename or "").suffix.lower()
-        return suffix if suffix in {".jpg", ".jpeg", ".png", ".webp", ".gif"} else ".img"
+        return self.media_storage.normalize_public_url(url)
 
     async def _paginate(
         self,

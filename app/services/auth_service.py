@@ -331,13 +331,13 @@ class AuthService:
         safe_user = serialize_mongo_document(user) or {}
         return UserResponse(
             id=safe_user["_id"],
-            full_name=safe_user["full_name"],
-            email=safe_user["email"],
+            full_name=safe_user.get("full_name") or safe_user.get("name") or "Unknown User",
+            email=safe_user.get("email", ""),
             is_verified=bool(safe_user.get("is_verified", False)),
             auth_provider=safe_user.get("auth_provider", "email"),
             avatar_url=safe_user.get("avatar_url"),
             date_of_birth=safe_user.get("date_of_birth"),
             country=safe_user.get("country"),
             language_preference=safe_user.get("language_preference", "EN"),
-            created_at=safe_user["created_at"],
+            created_at=safe_user.get("created_at") or safe_user.get("updated_at") or utc_now(),
         )
