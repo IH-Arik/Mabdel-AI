@@ -5,8 +5,8 @@ import logging
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo.errors import PyMongoError
 
-from app.core.config import settings
-from app.core.exceptions import AppException
+from Dashboard.app.core.config import settings
+from Dashboard.app.core.exceptions import AppException
 
 logger = logging.getLogger(__name__)
 

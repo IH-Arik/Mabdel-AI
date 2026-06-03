@@ -1,8 +1,8 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints.admin import router as admin_router
-from app.api.v1.endpoints.super_admin import router as super_admin_router
-from app.api.v1.endpoints.notifications import router as notifications_router
-from app.api.v1.endpoints.webhooks import router as webhooks_router
+from Dashboard.app.api.v1.endpoints.admin import router as admin_router
+from Dashboard.app.api.v1.endpoints.super_admin import router as super_admin_router
+from Dashboard.app.api.v1.endpoints.notifications import router as notifications_router
+from Dashboard.app.api.v1.endpoints.webhooks import router as webhooks_router
 
 api_router = APIRouter()
 

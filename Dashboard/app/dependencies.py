@@ -4,10 +4,10 @@ from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from app.core.database import get_database
-from app.core.exceptions import AppException
-from app.core.security import decode_token
-from app.services.dashboard_service import DashboardService
+from Dashboard.app.core.database import get_database
+from Dashboard.app.core.exceptions import AppException
+from Dashboard.app.core.security import decode_token
+from Dashboard.app.services.dashboard_service import DashboardService
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/admin/auth/login")

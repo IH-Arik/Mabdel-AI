@@ -3,9 +3,9 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from app.dependencies import get_mongo_database, get_current_user
-from app.repositories.notification_repository import NotificationRepository
-from app.schemas.dashboard_schemas import (
+from Dashboard.app.dependencies import get_mongo_database, get_current_user
+from Dashboard.app.repositories.notification_repository import NotificationRepository
+from Dashboard.app.schemas.dashboard_schemas import (
     BaseResponse, 
     PaginatedResponse, 
     NotificationItem
