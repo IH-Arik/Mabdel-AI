@@ -35,3 +35,4 @@ temp_interactive_push.bat
 .gitignore
 config.bat
 node_modules
+branch_structure.json
